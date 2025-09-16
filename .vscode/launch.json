@@ -1,0 +1,52 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome against localhost",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}/frontend"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Vite Dev Server",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
+            "cwd": "${workspaceFolder}/frontend"
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug Flask Backend",
+            "program": "${workspaceFolder}/backend/app.py",
+            "cwd": "${workspaceFolder}/backend",
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_DEBUG": "1"
+            },
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Frontend (Full)",
+            "configurations": [
+                "Debug Vite Dev Server",
+                "Launch Chrome against localhost"
+            ]
+        },
+        {
+            "name": "Debug Full Stack",
+            "configurations": [
+                "Debug Flask Backend",
+                "Debug Vite Dev Server",
+                "Launch Chrome against localhost"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,136 @@
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: videogame-calendar-postgres
+    environment:
+      POSTGRES_DB: gamecalendar
+      POSTGRES_USER: gameuser
+      POSTGRES_PASSWORD: gamepass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gameuser -d gamecalendar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and message broker
+  redis:
+    image: redis:7-alpine
+    container_name: videogame-calendar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Game API Service
+  game-api:
+    build:
+      context: .
+      dockerfile: services/game-api/Dockerfile
+    container_name: videogame-calendar-game-api
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+      - REDIS_URL=redis://redis:6379/0
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Data Sync Worker
+  data-sync-worker:
+    build:
+      context: .
+      dockerfile: services/data-sync/Dockerfile
+    container_name: videogame-calendar-data-sync
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+      - REDIS_URL=redis://redis:6379/1
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A worker worker --loglevel=info
+
+  # Data Sync Scheduler
+  data-sync-scheduler:
+    build:
+      context: .
+      dockerfile: services/data-sync/Dockerfile
+    container_name: videogame-calendar-scheduler
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+      - REDIS_URL=redis://redis:6379/1
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A worker beat --loglevel=info
+
+  # Admin API Service
+  admin-api:
+    build:
+      context: .
+      dockerfile: services/admin-api/Dockerfile
+    container_name: videogame-calendar-admin-api
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+      - REDIS_URL=redis://redis:6379/0
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: videogame-calendar-frontend
+    environment:
+      - VITE_GAME_API_URL=http://localhost:8000
+      - VITE_ADMIN_API_URL=http://localhost:8001
+    ports:
+      - "3000:80"
+    depends_on:
+      - game-api
+      - admin-api
+
+volumes:
+  postgres_data:
+  redis_data:

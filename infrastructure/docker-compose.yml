@@ -1,0 +1,172 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: videogame-calendar-postgres
+    environment:
+      POSTGRES_DB: videogame_calendar
+      POSTGRES_USER: gameuser
+      POSTGRES_PASSWORD: gamepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gameuser -d videogame_calendar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and message broker
+  redis:
+    image: redis:7-alpine
+    container_name: videogame-calendar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Game API Service
+  game-api:
+    build:
+      context: .
+      dockerfile: services/game-api/Dockerfile
+    container_name: videogame-calendar-game-api
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepassword@postgres:5432/videogame_calendar
+      - REDIS_URL=redis://redis:6379
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - ADMIN_KEY=${ADMIN_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/game-api:/app/services/game-api
+      - ./shared:/app/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Data Sync Service (Celery Worker)
+  data-sync-worker:
+    build:
+      context: .
+      dockerfile: services/data-sync/Dockerfile
+    container_name: videogame-calendar-data-sync-worker
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepassword@postgres:5432/videogame_calendar
+      - REDIS_URL=redis://redis:6379
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/data-sync:/app/services/data-sync
+      - ./shared:/app/shared
+    command: celery -A worker worker --loglevel=info
+
+  # Celery Beat (Scheduler)
+  data-sync-scheduler:
+    build:
+      context: .
+      dockerfile: services/data-sync/Dockerfile
+    container_name: videogame-calendar-data-sync-scheduler
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepassword@postgres:5432/videogame_calendar
+      - REDIS_URL=redis://redis:6379
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/data-sync:/app/services/data-sync
+      - ./shared:/app/shared
+    command: celery -A worker beat --loglevel=info
+
+  # Admin API Service
+  admin-api:
+    build:
+      context: .
+      dockerfile: services/admin-api/Dockerfile
+    container_name: videogame-calendar-admin-api
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepassword@postgres:5432/videogame_calendar
+      - REDIS_URL=redis://redis:6379
+      - ADMIN_KEY=${ADMIN_KEY}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/admin-api:/app/services/admin-api
+      - ./shared:/app/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (existing)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: videogame-calendar-frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_ADMIN_API_URL=http://localhost:8001
+    ports:
+      - "3000:80"
+    depends_on:
+      - game-api
+      - admin-api
+
+  # Monitoring (optional)
+  flower:
+    build:
+      context: .
+      dockerfile: services/data-sync/Dockerfile
+    container_name: videogame-calendar-flower
+    environment:
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    volumes:
+      - ./services/data-sync:/app/services/data-sync
+    command: celery -A worker flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: videogame-calendar-network
