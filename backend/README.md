@@ -1,66 +1,39 @@
-# Video Game Calendar Backend
+# Video Game Calendar Backend (Legacy)
 
-## Overview
+> **Note**: This is the legacy Flask backend. The new microservices architecture is recommended for new deployments. See [DOCUMENTATION.md](../DOCUMENTATION.md) for the modern setup.
 
-This backend provides data for the Video Game Calendar application. It fetches and caches data from the IGDB API, stores it in a SQLite database, and serves it via RESTful API endpoints.
+Flask-based backend that provides RESTful API endpoints for game data.
 
-## Setup Instructions
+## Features
 
-### Prerequisites
+- RESTful API endpoints
+- IGDB API integration
+- SQLite database
+- SSL support for corporate environments
 
-- Python 3.12+ (3.13 recommended)
-- pip
-- Virtual environment (recommended)
-
-### Installation
-
-1. Create and activate a virtual environment (optional but recommended):
-   ```bash
-   # On Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-   
-   # On macOS/Linux
-   python -m venv venv
-   source venv/bin/activate
-   ```
-
-2. Install the required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Configure environment variables in your `.env` file with API keys and settings.
-
-### Running the Application
-
-There are several ways to run the application:
-
-#### 1. Using the run.py script (Recommended)
+## Quick Setup
 
 ```bash
+cd backend
+pip install -r requirements.txt
+
+# Configure .env file
+cp .env.example .env
+# Add your IGDB API credentials
+
 python run.py
 ```
 
-This will start the Flask development server on port 5050.
+## SSL Support
 
-#### 2. Using Flask CLI
-
-```bash
-# Make sure FLASK_APP is set to app:app
-flask run --host=0.0.0.0 --port=5050
-```
-
-### Using Docker
-
-To run the application with Docker:
+For corporate environments requiring SSL:
 
 ```bash
-# Build the Docker image
-docker build -t videogame-calendar-backend .
+# Windows
+.\run_backend.ps1
 
-# Run the container
-docker run -p 5050:5050 videogame-calendar-backend
+# Linux/Mac
+./run_backend_ssl.sh
 ```
 
 ## Project Structure

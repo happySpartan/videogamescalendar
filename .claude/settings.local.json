@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(pip --version)",
+      "Bash(where psql)",
+      "Bash(where redis-cli)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
