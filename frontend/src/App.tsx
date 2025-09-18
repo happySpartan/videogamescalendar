@@ -8,7 +8,7 @@ const App: React.FC = () => {
   return (
     <MantineProvider theme={appTheme}>
       <Layout>
-        <div>Select a view from the sidebar</div>
+        {/* Layout will handle content display based on active view */}
       </Layout>
     </MantineProvider>
   );

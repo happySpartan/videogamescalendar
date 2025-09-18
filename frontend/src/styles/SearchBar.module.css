@@ -1,6 +1,8 @@
+/* Dark Gaming Search Bar Theme */
 .searchContainer {
   width: 300px;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .expanded {
@@ -9,26 +11,93 @@
 
 .searchInput {
   width: 100%;
+  position: relative;
 }
 
-.searchInput input {
-  height: 38px;
-  border-radius: 20px;
-  transition: all 0.3s ease;
+.searchInput :global(.mantine-TextInput-input) {
+  height: 42px !important;
+  border-radius: 16px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  font-weight: 500 !important;
+  padding-left: 50px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
 }
 
-.searchInput input:focus {
-  border-color: var(--mantine-color-blue-5);
-  box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.1);
+.searchInput :global(.mantine-TextInput-input::placeholder) {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-weight: 400 !important;
 }
 
+.searchInput :global(.mantine-TextInput-input:focus) {
+  border-color: rgba(139, 69, 255, 0.5) !important;
+  box-shadow:
+    0 0 30px rgba(139, 69, 255, 0.3) !important,
+    0 8px 25px rgba(0, 0, 0, 0.2) !important;
+  background: linear-gradient(135deg, rgba(139, 69, 255, 0.08) 0%, rgba(255, 0, 255, 0.05) 100%) !important;
+  transform: translateY(-1px) !important;
+}
+
+.searchInput :global(.mantine-TextInput-leftSection) {
+  color: rgba(255, 255, 255, 0.6) !important;
+  transition: color 0.3s ease !important;
+  padding-left: 4px !important;
+}
+
+.searchInput:focus-within :global(.mantine-TextInput-leftSection) {
+  color: rgba(139, 69, 255, 0.8) !important;
+}
+
+.searchInput :global(.mantine-TextInput-root) {
+  position: relative;
+}
+
+.searchInput:focus-within::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%);
+  border-radius: 18px;
+  z-index: -1;
+  opacity: 0.3;
+  animation: searchGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes searchGlow {
+  from { opacity: 0.2; }
+  to { opacity: 0.4; }
+}
+
+/* Hover effects */
+.searchInput:hover :global(.mantine-TextInput-input) {
+  border-color: rgba(139, 69, 255, 0.3) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%) !important;
+  transform: translateY(-1px) !important;
+}
+
+.searchInput:hover :global(.mantine-TextInput-leftSection) {
+  color: rgba(139, 69, 255, 0.6) !important;
+}
+
+/* Responsive Design */
 @media (max-width: 1200px) {
   .searchContainer {
     width: 250px;
   }
-  
+
   .expanded {
     width: 320px;
+  }
+
+  .searchInput :global(.mantine-TextInput-input) {
+    height: 40px !important;
+    font-size: 14px !important;
   }
 }
 
@@ -36,9 +105,15 @@
   .searchContainer {
     width: 200px;
   }
-  
+
   .expanded {
     width: 250px;
+  }
+
+  .searchInput :global(.mantine-TextInput-input) {
+    height: 38px !important;
+    border-radius: 14px !important;
+    padding-left: 45px !important;
   }
 }
 
@@ -46,8 +121,14 @@
   .searchContainer {
     width: 180px;
   }
-  
+
   .expanded {
     width: 220px;
+  }
+
+  .searchInput :global(.mantine-TextInput-input) {
+    height: 36px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
   }
 }

@@ -1,27 +1,59 @@
+/* Dark Gaming Header Theme */
 .header {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  position: relative;
+  overflow: hidden;
   height: 60px;
-  background-color: white;
-  border-bottom: 1px solid #e9ecef;
   padding: 0 var(--mantine-spacing-md);
 }
 
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg,
+    rgba(139, 69, 255, 0.05) 0%,
+    rgba(255, 0, 255, 0.03) 50%,
+    rgba(0, 255, 255, 0.05) 100%);
+  pointer-events: none;
+}
+
 .inner {
-  height: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .leftSection {
   display: flex;
   align-items: center;
+  gap: 24px;
   flex: 1;
 }
 
 .titleSection {
   display: flex;
   align-items: center;
+  color: rgba(255, 255, 255, 0.95);
   margin-right: 20px;
+}
+
+.titleSection h2 {
+  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  text-shadow: 0 0 20px rgba(139, 69, 255, 0.3);
+  letter-spacing: -0.5px;
 }
 
 .searchSection {
@@ -34,34 +66,149 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.centerGroup button {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(10px);
+}
+
+.centerGroup button:hover {
+  background: rgba(139, 69, 255, 0.2) !important;
+  border-color: rgba(139, 69, 255, 0.4) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(139, 69, 255, 0.2);
+}
+
+.centerGroup button:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+.periodTitle {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 10px rgba(139, 69, 255, 0.2);
+  min-width: 180px;
+  text-align: center;
 }
 
 .rightSection {
   flex: 1;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
 }
 
-.periodTitle {
-  min-width: 180px;
-  text-align: center;
+/* Segmented Control Dark Theme */
+.rightSection [data-mantine-component="SegmentedControl"] {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
 }
 
+.rightSection [data-mantine-component="SegmentedControl"] button {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+  font-weight: 500 !important;
+}
+
+.rightSection [data-mantine-component="SegmentedControl"] button:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.rightSection [data-mantine-component="SegmentedControl"] button[data-active="true"] {
+  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(139, 69, 255, 0.4) !important;
+}
+
+/* Export Button */
+.rightSection button[data-variant="filled"] {
+  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 0 20px rgba(139, 69, 255, 0.3);
+}
+
+.rightSection button[data-variant="filled"]:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(139, 69, 255, 0.4) !important;
+  background: linear-gradient(135deg, #a855ff 0%, #ff33ff 100%) !important;
+}
+
+/* Link styles for dark theme */
+.link {
+  display: block;
+  line-height: 1;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-radius: 12px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.link:hover {
+  background: rgba(139, 69, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  transform: translateX(4px);
+}
+
+.link[data-active] {
+  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(139, 69, 255, 0.3);
+}
+
+/* Responsive Design */
 @media (max-width: 1200px) {
   .centerGroup {
     position: static;
     transform: none;
     margin: 0 auto;
+    gap: 12px;
   }
-  
+
   .inner {
     flex-wrap: wrap;
     padding: 10px 0;
     height: auto;
   }
-  
+
   .header {
     height: auto;
+  }
+
+  .leftSection {
+    gap: 16px;
+  }
+
+  .searchSection {
+    max-width: 300px;
   }
 }
 
@@ -70,24 +217,30 @@
     min-width: auto;
     font-size: 1.2rem;
   }
-}
 
-.link {
-  display: block;
-  line-height: 1;
-  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
-  border-radius: var(--mantine-radius-sm);
-  text-decoration: none;
-  color: var(--mantine-color-gray-7);
-  font-size: var(--mantine-font-size-sm);
-  font-weight: 500;
-
-  &:hover {
-    background-color: var(--mantine-color-gray-0);
+  .inner {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
   }
 
-  &[data-active] {
-    background-color: var(--mantine-color-blue-0);
-    color: var(--mantine-color-blue-7);
+  .leftSection {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .searchSection {
+    max-width: none;
+    flex: 1;
+  }
+
+  .centerGroup {
+    order: 3;
+  }
+
+  .rightSection {
+    order: 2;
+    width: 100%;
+    justify-content: center;
   }
 }

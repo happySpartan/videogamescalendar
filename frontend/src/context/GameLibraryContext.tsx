@@ -86,7 +86,7 @@ const initialState: GameLibraryState = {
   },
   searchQuery: '',
   period: {
-    type: 'month',
+    type: 'week',
     date: new Date(),
   },
   filterOptions: {
@@ -227,10 +227,25 @@ export const GameLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     dispatch({ type: 'SET_FILTERED_GAMES', payload: result });
   };
   
-  // Apply filters whenever games, filters, or search query changes
+  // Load games when filters or search query changes (but not during period changes)
   useEffect(() => {
-    applyFilters();
-  }, [state.games, state.filters, state.searchQuery]);
+    // Only reload if we have games loaded and not currently loading or changing periods
+    // Also check if this is a fresh filter reset (all filters empty) to avoid triggering during period changes
+    const hasActiveFilters = state.filters.platforms.length > 0 ||
+                           state.filters.genres.length > 0 ||
+                           state.filters.languages.length > 0 ||
+                           state.searchQuery.trim() !== '';
+
+    if (state.games.length > 0 && !state.loading && !state.isPeriodChanging && hasActiveFilters) {
+      loadGames();
+    }
+  }, [state.filters, state.searchQuery]);
+
+  // Apply client-side filters as backup (in case API filtering is incomplete)
+  useEffect(() => {
+    // For now, since API handles filtering, we just set filtered games same as games
+    dispatch({ type: 'SET_FILTERED_GAMES', payload: state.games });
+  }, [state.games]);
     // Load games function
   const loadGames = async () => {
     try {
@@ -239,21 +254,33 @@ export const GameLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ c
       dispatch({ type: 'SET_ERROR', payload: null });
       dispatch({ type: 'SET_PAGE', payload: 1 });
       dispatch({ type: 'SET_HAS_MORE', payload: true });
-      
+
       const { type, date } = state.period;
-      const response = await gameService.getGamesByPeriod({ type, date });
-      
+      const { filters, searchQuery } = state;
+
+      // Prepare filters for API
+      const apiFilters = {
+        platforms: filters.platforms,
+        genres: filters.genres,
+        languages: filters.languages,
+        search: searchQuery
+      };
+
+      const response = await gameService.getGamesByPeriod({ type, date }, 1, apiFilters);
+
       if (response) {
         dispatch({ type: 'SET_GAMES', payload: response });
-        // Filtered games will be updated by the effect that watches games
+        dispatch({ type: 'SET_FILTERED_GAMES', payload: response });
       } else {
         dispatch({ type: 'SET_GAMES', payload: [] });
+        dispatch({ type: 'SET_FILTERED_GAMES', payload: [] });
         dispatch({ type: 'SET_ERROR', payload: 'No games found' });
       }
     } catch (error) {
       console.error('Error loading games:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load games' });
       dispatch({ type: 'SET_GAMES', payload: [] });
+      dispatch({ type: 'SET_FILTERED_GAMES', payload: [] });
     } finally {
       // Add a small delay before resetting loading states to ensure UI updates
       setTimeout(() => {

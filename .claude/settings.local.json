@@ -10,7 +10,11 @@
       "Bash(python:*)",
       "Bash(node:*)",
       "Bash(npm:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker:*)",
+      "Bash(:*)",
+      "Bash(*)"
     ],
     "deny": [],
     "ask": []
