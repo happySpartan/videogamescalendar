@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"C:\\Users\\jonathan.peil\\Downloads\\ProgProjects\\videogamecalendar\\infrastructure\\docker-compose.yml\" -Force)",
+      "Bash(powershell -c \"Remove-Item ''C:\\Users\\jonathan.peil\\Downloads\\ProgProjects\\videogamecalendar\\infrastructure\\docker-compose.yml'' -Force\")",
+      "Bash(powershell:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

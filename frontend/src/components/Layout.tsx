@@ -10,6 +10,7 @@ import {
 import classes from '../styles/Layout.module.css';
 import GameGrid from './GameGrid';
 import ListView from './ListView';
+import ModernCalendar from './ModernCalendar';
 import MainHeader from './Header';
 import { GameLibraryProvider } from '../context/GameLibraryContext';
 
@@ -83,12 +84,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <GameLibraryProvider>
       <AppShell
-        padding="md"
+        padding={active === 'Calendar' ? 0 : 'md'}
         navbar={{ width: 60, breakpoint: 'sm' }}
         header={{ height: 60 }}
         styles={{
           main: {
-            background: '#f7f8fa',
+            background: active === 'Calendar' ? 'linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%)' : '#f7f8fa',
           },
         }}
       >
@@ -112,18 +113,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <AppShell.Main>
           {/* Main content - search bar is now in the header */}
           <div className={classes.mainContent}>            {active === 'Calendar' ? (
-              <GameGrid 
-                view="Calendar"
-                searchQuery={searchQuery} 
+              <ModernCalendar />
+            ) : active === 'Home' ? (
+              <GameGrid
+                view="Home"
+                searchQuery={searchQuery}
                 period={{
                   type: currentPeriod.type === 'day' ? 'week' : currentPeriod.type as 'week' | 'month',
                   date: currentPeriod.date
                 }}
                 onGamesLoaded={handleGamesLoaded}
               />
-            ) : active === 'List View' ? (              <ListView 
+            ) : active === 'List View' ? (              <ListView
                 view="List View"
-                searchQuery={searchQuery} 
+                searchQuery={searchQuery}
                 period={{
                   type: currentPeriod.type === 'month' ? 'day' : (currentPeriod.type as 'day' | 'week'),
                   date: currentPeriod.date

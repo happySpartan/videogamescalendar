@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Admin API service...")
     
     # Test database connection
-    if await test_connection():
+    if test_connection():
         logger.info("Database connection successful")
     else:
         logger.error("Database connection failed")
@@ -109,7 +109,7 @@ async def health_check():
     
     # Check database
     try:
-        if await test_connection():
+        if test_connection():
             health_status["database"] = "connected"
         else:
             health_status["database"] = "disconnected"

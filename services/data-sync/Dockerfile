@@ -1,5 +1,5 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use Python 3.12 slim image
+FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
@@ -25,9 +25,10 @@ RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
 USER app
 
-# Health check for worker
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
-    CMD celery -A worker inspect ping || exit 1
+# Health check for worker (requires --format docker when using Podman)
+# For Podman: use `podman build --format docker` or uncomment in docker-compose.yml
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
+#     CMD celery -A worker inspect ping || exit 1
 
 # Default command runs worker
 CMD ["celery", "-A", "worker", "worker", "--loglevel=info"]

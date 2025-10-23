@@ -7,6 +7,7 @@ import logging
 from typing import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import QueuePool
 from ..models.base import Base
 
@@ -14,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://gameuser:gamepassword@localhost:5432/videogame_calendar")
+ASYNC_DATABASE_URL = os.getenv("ASYNC_DATABASE_URL", DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
 
-# Create engine with connection pooling optimized for microservices
+# Create sync engine with connection pooling optimized for microservices
 engine = create_engine(
     DATABASE_URL,
     poolclass=QueuePool,
@@ -26,8 +28,20 @@ engine = create_engine(
     echo=os.getenv("SQL_DEBUG", "false").lower() == "true"
 )
 
-# Session factory
+# Create async engine
+async_engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=os.getenv("SQL_DEBUG", "false").lower() == "true"
+)
+
+# Session factories
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+sync_session_factory = SessionLocal  # Alias for compatibility
+async_session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
 def get_database_url() -> str:
     """Get the database URL"""
@@ -43,6 +57,10 @@ def test_db_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
         return False
+
+def test_connection() -> bool:
+    """Alias for test_db_connection for compatibility"""
+    return test_db_connection()
 
 def init_db() -> None:
     """Initialize database tables"""

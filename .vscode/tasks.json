@@ -1,37 +1,339 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
+        // Infrastructure
         {
-            "label": "1. Verify database schema and data",
+            "label": "🐋 Start Infrastructure",
             "type": "shell",
-            "command": "code",
+            "command": "powershell",
             "args": [
-                "--goto",
-                "${workspaceFolder}/scripts/verifyDatabase.sql"
+                "-c",
+                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose up postgres redis -d } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose up postgres redis -d } else { Write-Host 'Neither Docker nor Podman found. Please install one of them.' -ForegroundColor Red }"
             ],
+            "group": "build",
             "presentation": {
+                "echo": true,
                 "reveal": "always",
-                "panel": "new"
-            }
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Start PostgreSQL & Redis (auto-detects Docker/Podman)"
         },
+        
+        // Individual Services
         {
-            "label": "2. Build SQL Database project",
+            "label": "🎮 Start Game API",
             "type": "shell",
-            "command": "dotnet build",
+            "command": "uvicorn",
+            "args": ["main:app", "--reload", "--port", "8000", "--host", "0.0.0.0"],
             "options": {
-                "cwd": "${workspaceFolder}/database/Library"
-            }
+                "cwd": "${workspaceFolder}/services/game-api"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Start Game API with hot reload",
+            "dependsOn": "🐋 Start Infrastructure"
         },
         {
-            "label": "3. Publish SQL Database project",
+            "label": "⚙️ Start Admin API",
             "type": "shell",
-            "command": "bash",
+            "command": "uvicorn",
+            "args": ["main:app", "--reload", "--port", "8001", "--host", "0.0.0.0"],
+            "options": {
+                "cwd": "${workspaceFolder}/services/admin-api"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Start Admin API with hot reload",
+            "dependsOn": "🐋 Start Infrastructure"
+        },
+        {
+            "label": "🔄 Start Data Sync Worker",
+            "type": "shell",
+            "command": "celery",
+            "args": ["-A", "worker", "worker", "--loglevel=info", "--pool=solo"],
+            "options": {
+                "cwd": "${workspaceFolder}/services/data-sync"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Start Celery worker with auto-reload",
+            "dependsOn": "🐋 Start Infrastructure"
+        },
+        {
+            "label": "⏰ Start Data Sync Scheduler",
+            "type": "shell",
+            "command": "celery",
+            "args": ["-A", "worker", "beat", "--loglevel=info"],
+            "options": {
+                "cwd": "${workspaceFolder}/services/data-sync"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Start Celery scheduler",
+            "dependsOn": "🐋 Start Infrastructure"
+        },
+        {
+            "label": "⚛️ Start Frontend",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "dev"],
+            "options": {
+                "cwd": "${workspaceFolder}/frontend",
+                "env": {
+                    "NODE_ENV": "development",
+                    "FORCE_COLOR": "1"
+                }
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Start React frontend with hot reload"
+        },
+        
+        // Compound Tasks
+        {
+            "label": "🚀 Start All Services",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "🐋 Start Infrastructure",
+                "🎮 Start Game API",
+                "⚙️ Start Admin API",
+                "🔄 Start Data Sync Worker",
+                "⚛️ Start Frontend"
+            ],
+            "group": "build",
+            "detail": "Start all services in development mode"
+        },
+        
+        // Stop & Clean
+        {
+            "label": "⏹️ Stop All Services",
+            "type": "shell",
+            "command": "powershell",
             "args": [
-                ".devcontainer/sql/postCreateCommand.sh",
-                "database/Library/bin/Debug"
-            ]
+                "-c",
+                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose down } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose down } else { Write-Host 'Neither Docker nor Podman found.' -ForegroundColor Red }"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Stop all containers (auto-detects Docker/Podman)"
+        },
+        {
+            "label": "🧽 Clean All",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose down -v --remove-orphans } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose down -v --remove-orphans } else { Write-Host 'Neither Docker nor Podman found.' -ForegroundColor Red }"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Stop containers and remove volumes (clean slate)"
+        },
+        
+        // Setup Tasks
+        {
+            "label": "📦 Install Frontend Dependencies",
+            "type": "shell",
+            "command": "npm",
+            "args": ["install"],
+            "options": {
+                "cwd": "${workspaceFolder}/frontend"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Install frontend dependencies"
+        },
+        {
+            "label": "🐍 Install Backend Dependencies",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "cd '${workspaceFolder}/services/game-api'; pip install -r requirements.txt; cd '${workspaceFolder}/services/admin-api'; pip install -r requirements.txt; cd '${workspaceFolder}/services/data-sync'; pip install -r requirements.txt"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Install all Python service dependencies"
+        },
+        {
+            "label": "🛠️ Setup Dev Environment",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "📦 Install Frontend Dependencies",
+                "🐍 Install Backend Dependencies"
+            ],
+            "group": "build",
+            "detail": "Install all dependencies for development"
+        },
+
+        // Code Quality Tasks
+        {
+            "label": "🔍 Lint All Python Services (Ruff)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; ruff check .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; ruff check .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; ruff check ."
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Run Ruff linter on all Python services"
+        },
+        {
+            "label": "✨ Format All Python Services (Ruff)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; ruff format .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; ruff format .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; ruff format ."
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Format all Python code with Ruff"
+        },
+        {
+            "label": "🔎 Type Check All Services (Mypy)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; mypy .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; mypy .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; mypy ."
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Run Mypy type checker on all Python services"
+        },
+        {
+            "label": "🛡️ Security Scan All Services (Bandit)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-c",
+                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; bandit -r . -c pyproject.toml; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; bandit -r . -c pyproject.toml; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; bandit -r . -c pyproject.toml"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Run Bandit security scanner on all Python services"
+        },
+        {
+            "label": "✅ Run All Quality Checks",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "🔍 Lint All Python Services (Ruff)",
+                "✨ Format All Python Services (Ruff)",
+                "🔎 Type Check All Services (Mypy)",
+                "🛡️ Security Scan All Services (Bandit)"
+            ],
+            "group": "test",
+            "detail": "Run all code quality checks (Ruff, Mypy, Bandit)"
         }
     ]
 }
