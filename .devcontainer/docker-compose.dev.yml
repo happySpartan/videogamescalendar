@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # Development container
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/videogamescalendar:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    network_mode: service:game-api
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/workspaces/videogamescalendar
+      - NODE_ENV=development
+
+  # Override game-api to keep running
+  game-api:
+    command: sleep infinity
