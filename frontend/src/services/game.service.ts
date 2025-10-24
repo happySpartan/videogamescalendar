@@ -97,31 +97,53 @@ class GameService {
     const response = await this.get<GameResponse>(endpoint);
     return response.games || [];
   }
-    // Get games for a specific period (month or week)
-  async getGamesByPeriod(period: { type: 'month' | 'week', date: Date }, page: number = 1): Promise<Game[]> {
+    // Get games for a specific period (month or week) with optional filters
+  async getGamesByPeriod(
+    period: { type: 'month' | 'week', date: Date },
+    page: number = 1,
+    filters?: {
+      platforms?: number[];
+      genres?: number[];
+      languages?: number[];
+      search?: string;
+    }
+  ): Promise<Game[]> {
     const offset = (page - 1) * this.pageSize;
     const limit = this.pageSize;
-    
+
     let endpoint = '/api/games';
     const params = new URLSearchParams();
-    
+
     if (period.type === 'month') {
-      params.set('period', 'specific_month');
       params.set('year', period.date.getFullYear().toString());
       params.set('month', (period.date.getMonth() + 1).toString()); // JavaScript months are 0-based
     } else {
       const { start, end } = this.getWeekBounds(period.date);
-      params.set('period', 'date_range');
       params.set('start_date', start.toISOString().split('T')[0]);
       params.set('end_date', end.toISOString().split('T')[0]);
     }
-    
+
+    // Add filters
+    if (filters) {
+      if (filters.search) {
+        params.set('search', filters.search);
+      }
+      if (filters.genres && filters.genres.length > 0) {
+        // For now, just use the first genre (API doesn't support multiple yet)
+        params.set('genre_id', filters.genres[0].toString());
+      }
+      if (filters.platforms && filters.platforms.length > 0) {
+        // For now, just use the first platform (API doesn't support multiple yet)
+        params.set('platform_id', filters.platforms[0].toString());
+      }
+    }
+
     params.set('page', page.toString());
     params.set('limit', limit.toString());
-    
+
     endpoint += `?${params.toString()}`;
     console.log('Requesting games with endpoint:', endpoint);
-    
+
     const response = await this.get<{games: Game[]; pagination: any}>(endpoint, true);
     return response.games || [];
   }

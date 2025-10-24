@@ -12,7 +12,7 @@ import GameGrid from './GameGrid';
 import ListView from './ListView';
 import ModernCalendar from './ModernCalendar';
 import MainHeader from './Header';
-import { GameLibraryProvider } from '../context/GameLibraryContext';
+import { GameLibraryProvider, useGameLibrary } from '../context/GameLibraryContext';
 
 const mainLinks = [
   { icon: IconHome2, label: 'Home' },
@@ -26,14 +26,12 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+// Inner component that uses the context
+const LayoutContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [active, setActive] = useState('Calendar');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPeriod, setCurrentPeriod] = useState<{ type: 'month' | 'week' | 'day'; date: Date }>({
-    type: 'month',
-    date: new Date()
-  });
   const [games, setGames] = useState<any[]>([]);
+  const { state: { period } } = useGameLibrary();
 
   // Memoize the main navigation links to prevent unnecessary re-renders
   const mainNavLinks = useMemo(() => mainLinks.map((link) => (
@@ -44,37 +42,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       transitionProps={{ duration: 0 }}
       key={link.label}
     >
-      <UnstyledButton        onClick={() => {
-          setActive(link.label);
-          // When switching between views, adjust period type appropriately
-          if (link.label === 'List View') {
-            // Switch to day view when going to List View if currently in month view
-            if (currentPeriod.type === 'month') {
-              setCurrentPeriod(prev => ({ ...prev, type: 'day' }));
-            }
-          } else if (link.label === 'Calendar') {
-            // Switch to month view when going to Calendar if currently in day view
-            if (currentPeriod.type === 'day') {
-              setCurrentPeriod(prev => ({ ...prev, type: 'month' }));
-            }
-          }
-        }}
+      <UnstyledButton        onClick={() => setActive(link.label)}
         className={classes.mainLink}
         data-active={link.label === active || undefined}
       >
         <link.icon size={22} stroke={1.5} />
       </UnstyledButton>
     </Tooltip>
-  )), [active, currentPeriod.type]);
+  )), [active]);
 
   // Use useCallback to prevent unnecessary function re-creations
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
 
-  const handlePeriodChange = useCallback((newPeriod: { type: 'month' | 'week' | 'day'; date: Date }) => {
-    setCurrentPeriod(newPeriod);
-  }, []);
 
   // Update games data
   const handleGamesLoaded = useCallback((loadedGames: any[]) => {
@@ -82,7 +63,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <GameLibraryProvider>
       <AppShell
         padding={active === 'Calendar' ? 0 : 'md'}
         navbar={{ width: 60, breakpoint: 'sm' }}
@@ -94,11 +74,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         }}
       >
         <AppShell.Header>
-          <MainHeader 
+          <MainHeader
             currentView={active}
             onViewChange={setActive}
-            currentPeriod={currentPeriod}
-            onPeriodChange={handlePeriodChange}
+            currentPeriod={period}
+            onPeriodChange={() => {}} // Remove this prop since header uses context directly
             games={games}
             onSearch={handleSearch}
           />
@@ -139,6 +119,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </AppShell.Main>
       </AppShell>
+  );
+};
+
+// Main Layout component that provides the context
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  return (
+    <GameLibraryProvider>
+      <LayoutContent>{children}</LayoutContent>
     </GameLibraryProvider>
   );
 };
