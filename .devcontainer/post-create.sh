@@ -1,141 +1,76 @@
 #!/bin/bash
+
+# Post-create script for setting up the development environment
 set -e
 
-echo ""
-echo "🚀 Setting up Video Game Calendar development environment..."
-echo ""
+echo "🚀 Setting up Video Games Calendar development environment..."
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Install Python dependencies
+echo "📦 Installing Python dependencies..."
+pip install --upgrade pip
+pip install -r services/game-api/requirements.txt
+pip install -r services/admin-api/requirements.txt
+pip install -r services/data-sync/requirements.txt
+pip install -r scripts/requirements.txt
 
-# Function to print colored messages
-print_step() {
-    echo -e "${BLUE}▶ $1${NC}"
-}
+# Install Python dev tools
+echo "🔧 Installing Python development tools..."
+pip install black flake8 pytest pytest-cov mypy isort
 
-print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
-}
-
-# Install Python dependencies for each service
-print_step "Installing Python dependencies..."
-
-cd /workspace/services/game-api
-pip install -r requirements.txt
-print_success "Game API dependencies installed"
-
-cd /workspace/services/admin-api
-pip install -r requirements.txt
-print_success "Admin API dependencies installed"
-
-cd /workspace/services/data-sync
-pip install -r requirements.txt
-print_success "Data Sync dependencies installed"
-
-# Install frontend dependencies
-print_step "Installing frontend dependencies..."
-cd /workspace/frontend
+# Install Node.js dependencies for frontend
+echo "📦 Installing frontend dependencies..."
+cd /workspaces/videogamescalendar/frontend
 npm install
-print_success "Frontend dependencies installed"
+cd /workspaces/videogamescalendar
 
 # Wait for PostgreSQL to be ready
-print_step "Waiting for PostgreSQL to be ready..."
-max_attempts=30
-attempt=0
-until pg_isready -h postgres -p 5432 -U gameuser > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-    attempt=$((attempt + 1))
-    echo "Waiting for PostgreSQL... (attempt $attempt/$max_attempts)"
-    sleep 2
+echo "⏳ Waiting for PostgreSQL to be ready..."
+until pg_isready -h postgres -U gameuser -d gamecalendar > /dev/null 2>&1; do
+  echo "Waiting for PostgreSQL..."
+  sleep 2
 done
 
-if [ $attempt -eq $max_attempts ]; then
-    print_warning "PostgreSQL did not become ready in time. You may need to restart the database service."
-else
-    print_success "PostgreSQL is ready"
-fi
+echo "✅ PostgreSQL is ready!"
 
 # Wait for Redis to be ready
-print_step "Waiting for Redis to be ready..."
-max_attempts=30
-attempt=0
-until redis-cli -h localhost -p 6379 ping > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-    attempt=$((attempt + 1))
-    echo "Waiting for Redis... (attempt $attempt/$max_attempts)"
-    sleep 2
+echo "⏳ Waiting for Redis to be ready..."
+until redis-cli -h redis ping > /dev/null 2>&1; do
+  echo "Waiting for Redis..."
+  sleep 2
 done
 
-if [ $attempt -eq $max_attempts ]; then
-    print_warning "Redis did not become ready in time. You may need to restart the Redis service."
-else
-    print_success "Redis is ready"
-fi
+echo "✅ Redis is ready!"
 
-# Copy environment file if it doesn't exist
-if [ ! -f /workspace/.env ]; then
-    print_step "Creating .env file..."
-    cat > /workspace/.env << 'EOF'
-# Database Configuration
+# Create .env file if it doesn't exist
+if [ ! -f /workspaces/videogamescalendar/.env ]; then
+  echo "📝 Creating .env file..."
+  cat > /workspaces/videogamescalendar/.env << EOF
+# Database
 DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
 
-# Redis Configuration
-REDIS_URL=redis://localhost:6379/0
+# Redis
+REDIS_URL=redis://redis:6379/0
 
-# IGDB API Configuration (⚠️ ADD YOUR CREDENTIALS)
+# IGDB API Credentials (Add your own)
 IGDB_CLIENT_ID=your_client_id_here
 IGDB_CLIENT_SECRET=your_client_secret_here
 
-# Admin Configuration
-ADMIN_TOKEN=your_secure_admin_token_here
+# Admin Token (Change this!)
+ADMIN_TOKEN=change_me_in_production
 
-# Development Settings
-PYTHONPATH=/workspace
+# Environment
 NODE_ENV=development
+PYTHON_ENV=development
 EOF
-    print_warning ".env file created - REMEMBER TO ADD YOUR IGDB CREDENTIALS!"
-else
-    print_success ".env file already exists"
+  echo "⚠️  Please update .env file with your IGDB API credentials"
 fi
 
-# Return to workspace root
-cd /workspace
-
+echo "✅ Development environment setup complete!"
 echo ""
-echo "================================================================"
-echo -e "${GREEN}✓ Setup complete!${NC}"
-echo "================================================================"
+echo "📋 Quick Start Commands:"
+echo "  - Start frontend dev server:  cd frontend && npm run dev"
+echo "  - Start Game API:             cd services/game-api && uvicorn main:app --reload --host 0.0.0.0"
+echo "  - Start Admin API:            cd services/admin-api && uvicorn main:app --reload --host 0.0.0.0 --port 8001"
+echo "  - Run all services:           docker-compose up"
 echo ""
-echo -e "${BLUE}📋 Quick Start Commands:${NC}"
-echo ""
-echo "  1️⃣  Start infrastructure (already running in background):"
-echo "     Already started: PostgreSQL on port 5432, Redis on port 6379"
-echo ""
-echo "  2️⃣  Start backend services (open 3 terminals):"
-echo "     Terminal 1: cd services/game-api && uvicorn main:app --reload --port 8000"
-echo "     Terminal 2: cd services/admin-api && uvicorn main:app --reload --port 8001"
-echo "     Terminal 3: cd services/data-sync && celery -A worker worker --loglevel=info --pool=solo"
-echo ""
-echo "  3️⃣  Start frontend:"
-echo "     Terminal 4: cd frontend && npm run dev"
-echo ""
-echo "  Or use VS Code tasks: Ctrl+Shift+P → 'Tasks: Run Task'"
-echo ""
-echo -e "${BLUE}🔗 Service URLs:${NC}"
-echo "  Frontend:      http://localhost:3000"
-echo "  Game API:      http://localhost:8000/docs"
-echo "  Admin API:     http://localhost:8001/docs"
-echo "  PostgreSQL:    localhost:5432"
-echo "  Redis:         localhost:6379"
-echo ""
-echo -e "${YELLOW}⚠️  Don't forget to:${NC}"
-echo "  1. Add your IGDB credentials to .env"
-echo "  2. Add your admin token to .env"
-echo ""
-echo "Happy coding! 🎮🚀"
-echo ""
+echo "🎉 Happy coding!"

@@ -1,19 +1,20 @@
 {
-  "name": "Video Game Calendar",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "app",
-  "workspaceFolder": "/workspace",
-
-  // Features to install
+  "name": "Video Games Calendar Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
+  "workspaceFolder": "/workspaces/videogamescalendar",
+  
   "features": {
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.12",
-      "installTools": true
-    },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "20",
-      "nodeGypDependencies": true,
-      "installYarnUsingApt": true
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": false,
+      "installOhMyZsh": true,
+      "upgradePackages": true,
+      "username": "vscode",
+      "userUid": "automatic",
+      "userGid": "automatic"
     },
     "ghcr.io/devcontainers/features/git:1": {
       "version": "latest"
@@ -22,103 +23,60 @@
       "version": "latest"
     }
   },
-
-  // VS Code settings
+  
   "customizations": {
     "vscode": {
-      // Extensions to install
-      "extensions": [
-        // Python
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "charliermarsh.ruff",
-        "ms-python.debugpy",
-
-        // JavaScript/TypeScript/React
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-
-        // Docker & Containers
-        "ms-azuretools.vscode-docker",
-
-        // Git
-        "eamodio.gitlens",
-
-        // Database
-        "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg",
-
-        // Utilities
-        "editorconfig.editorconfig",
-        "usernamehw.errorlens",
-        "christian-kohler.path-intellisense",
-        "visualstudioexptteam.vscodeintellicode"
-      ],
-
-      // VS Code settings
       "settings": {
-        // Python
+        "terminal.integrated.defaultProfile.linux": "bash",
         "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.linting.enabled": true,
-        "python.linting.ruffEnabled": true,
-        "python.linting.mypyEnabled": true,
-        "python.formatting.provider": "none",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
         "[python]": {
-          "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true,
           "editor.codeActionsOnSave": {
-            "source.fixAll": "explicit",
             "source.organizeImports": "explicit"
           }
         },
-
-        // TypeScript/JavaScript
         "[typescript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
           "editor.formatOnSave": true
         },
         "[typescriptreact]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
           "editor.formatOnSave": true
         },
-        "[javascript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "[json]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-
-        // Editor
-        "editor.rulers": [100],
-        "editor.tabSize": 4,
-        "files.trimTrailingWhitespace": true,
-        "files.insertFinalNewline": true,
-
-        // Terminal
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.env.linux": {
-          "PYTHONPATH": "${workspaceFolder}"
+        "typescript.tsdk": "frontend/node_modules/typescript/lib",
+        "eslint.workingDirectories": ["frontend"],
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/*.pyc": true,
+          "**/.pytest_cache": true,
+          "**/node_modules": true
         }
-      }
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "visualstudioexptteam.vscodeintellicode",
+        "christian-kohler.path-intellisense",
+        "gruntfuggly.todo-tree"
+      ]
     }
   },
-
-  // Port forwarding
-  "forwardPorts": [
-    3000,  // Frontend (Vite)
-    8000,  // Game API
-    8001,  // Admin API
-    5432,  // PostgreSQL
-    6379,  // Redis
-    5555   // Flower (Celery monitoring)
-  ],
-
-  // Port labels
+  
+  "forwardPorts": [3000, 8000, 8001, 5432, 6379],
+  
   "portsAttributes": {
     "3000": {
-      "label": "Frontend",
+      "label": "Frontend (Vite)",
       "onAutoForward": "notify"
     },
     "8000": {
@@ -136,37 +94,9 @@
     "6379": {
       "label": "Redis",
       "onAutoForward": "silent"
-    },
-    "5555": {
-      "label": "Flower (Celery)",
-      "onAutoForward": "silent"
     }
   },
-
-  // Post-create command (run after container is created)
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
-
-  // Post-start command (run when container starts)
-  "postStartCommand": "echo 'Container started! Run: npm run dev (frontend) or uvicorn main:app --reload (backend)'",
-
-  // Run arguments
-  "runArgs": [
-    "--name=videogame-calendar-dev"
-  ],
-
-  // Mount docker socket for Docker-in-Docker
-  "mounts": [
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-  ],
-
-  // Container user
-  "remoteUser": "vscode",
-
-  // Environment variables
-  "remoteEnv": {
-    "DATABASE_URL": "postgresql://gameuser:gamepass@postgres:5432/gamecalendar",
-    "REDIS_URL": "redis://redis:6379/0",
-    "PYTHONPATH": "${containerWorkspaceFolder}",
-    "NODE_ENV": "development"
-  }
+  
+  "postCreateCommand": "bash .devcontainer/post-create-codespaces.sh",
+  "remoteUser": "vscode"
 }
