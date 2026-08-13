@@ -5,13 +5,11 @@ set -e
 
 echo "🚀 Setting up Video Games Calendar development environment..."
 
-# Install Python dependencies
+# Install Python dependencies (single consolidated app package)
 echo "📦 Installing Python dependencies..."
 pip install --upgrade pip
-pip install -r services/game-api/requirements.txt
-pip install -r services/admin-api/requirements.txt
-pip install -r services/data-sync/requirements.txt
-pip install -r scripts/requirements.txt
+pip install -e ".[dev]"
+pip install -r scripts/requirements.txt 2>/dev/null || true
 
 # Install Python dev tools
 echo "🔧 Installing Python development tools..."
@@ -69,8 +67,9 @@ echo "✅ Development environment setup complete!"
 echo ""
 echo "📋 Quick Start Commands:"
 echo "  - Start frontend dev server:  cd frontend && npm run dev"
-echo "  - Start Game API:             cd services/game-api && uvicorn main:app --reload --host 0.0.0.0"
-echo "  - Start Admin API:            cd services/admin-api && uvicorn main:app --reload --host 0.0.0.0 --port 8001"
+echo "  - Start backend API:          uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+echo "  - Start Celery worker:        celery -A app.sync.celery_app worker --loglevel=info"
+echo "  - Start Celery beat:          celery -A app.sync.celery_app beat --loglevel=info"
 echo "  - Run all services:           docker-compose up"
 echo ""
 echo "🎉 Happy coding!"

@@ -9,27 +9,14 @@ echo "🚀 Setting up Video Games Calendar development environment in Codespaces
 # Re-enable exit on error for dependency installation
 set -e
 
-# Install Python dependencies
+# Install Python dependencies (single consolidated app package)
 echo "📦 Installing Python dependencies..."
 pip install --upgrade pip --quiet
 
-# Install all service requirements
-if [ -f "services/game-api/requirements.txt" ]; then
-    echo "  - Installing game-api dependencies..."
-    pip install -r services/game-api/requirements.txt --quiet
-fi
-
-if [ -f "services/admin-api/requirements.txt" ]; then
-    echo "  - Installing admin-api dependencies..."
-    pip install -r services/admin-api/requirements.txt --quiet
-fi
-
-if [ -f "services/data-sync/requirements.txt" ]; then
-    echo "  - Installing data-sync dependencies..."
-    pip install -r services/data-sync/requirements.txt --quiet
-fi
-
-if [ -f "scripts/requirements.txt" ]; then
+if [ -f "pyproject.toml" ]; then
+    echo "  - Installing app package + dev deps from pyproject.toml..."
+    pip install -e ".[dev]" --quiet
+elif [ -f "scripts/requirements.txt" ]; then
     echo "  - Installing script dependencies..."
     pip install -r scripts/requirements.txt --quiet
 fi
@@ -140,8 +127,9 @@ echo "✅ Development environment setup complete!"
 echo ""
 echo "📋 Quick Start Commands:"
 echo "  - Start frontend dev server:  cd frontend && npm run dev"
-echo "  - Start Game API:             cd services/game-api && uvicorn main:app --reload --host 0.0.0.0"
-echo "  - Start Admin API:            cd services/admin-api && uvicorn main:app --reload --host 0.0.0.0 --port 8001"
+echo "  - Start backend API:          uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+echo "  - Start Celery worker:        celery -A app.sync.celery_app worker --loglevel=info"
+echo "  - Start Celery beat:          celery -A app.sync.celery_app beat --loglevel=info"
 echo "  - View running services:      docker compose ps"
 echo "  - View service logs:          docker compose logs -f"
 echo ""

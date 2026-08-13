@@ -62,7 +62,6 @@
   "forwardPorts": [
     3000,
     8000,
-    8001,
     5432,
     6379
   ],
@@ -72,12 +71,8 @@
       "onAutoForward": "notify"
     },
     "8000": {
-      "label": "Game API",
+      "label": "Backend API (public + /admin)",
       "onAutoForward": "notify"
-    },
-    "8001": {
-      "label": "Admin API",
-      "onAutoForward": "silent"
     },
     "5432": {
       "label": "PostgreSQL",

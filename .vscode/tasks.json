@@ -1,7 +1,6 @@
 {
     "version": "2.0.0",
     "tasks": [
-        // Infrastructure
         {
             "label": "🐋 Start Infrastructure",
             "type": "shell",
@@ -22,15 +21,16 @@
             "problemMatcher": [],
             "detail": "Start PostgreSQL & Redis (auto-detects Docker/Podman)"
         },
-        
-        // Individual Services
         {
-            "label": "🎮 Start Game API",
+            "label": "🚀 Start Backend API",
             "type": "shell",
             "command": "uvicorn",
-            "args": ["main:app", "--reload", "--port", "8000", "--host", "0.0.0.0"],
+            "args": ["app.main:app", "--reload", "--port", "8000", "--host", "0.0.0.0"],
             "options": {
-                "cwd": "${workspaceFolder}/services/game-api"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                }
             },
             "group": "build",
             "presentation": {
@@ -42,37 +42,19 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Start Game API with hot reload",
+            "detail": "Start consolidated backend API (public + /admin) with hot reload",
             "dependsOn": "🐋 Start Infrastructure"
         },
         {
-            "label": "⚙️ Start Admin API",
-            "type": "shell",
-            "command": "uvicorn",
-            "args": ["main:app", "--reload", "--port", "8001", "--host", "0.0.0.0"],
-            "options": {
-                "cwd": "${workspaceFolder}/services/admin-api"
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Start Admin API with hot reload",
-            "dependsOn": "🐋 Start Infrastructure"
-        },
-        {
-            "label": "🔄 Start Data Sync Worker",
+            "label": "🔄 Start Celery Worker",
             "type": "shell",
             "command": "celery",
-            "args": ["-A", "worker", "worker", "--loglevel=info", "--pool=solo"],
+            "args": ["-A", "app.sync.celery_app", "worker", "--loglevel=info", "--pool=solo"],
             "options": {
-                "cwd": "${workspaceFolder}/services/data-sync"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                }
             },
             "group": "build",
             "presentation": {
@@ -84,16 +66,19 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Start Celery worker with auto-reload",
+            "detail": "Start Celery worker (app.sync.celery_app)",
             "dependsOn": "🐋 Start Infrastructure"
         },
         {
-            "label": "⏰ Start Data Sync Scheduler",
+            "label": "⏰ Start Celery Beat",
             "type": "shell",
             "command": "celery",
-            "args": ["-A", "worker", "beat", "--loglevel=info"],
+            "args": ["-A", "app.sync.celery_app", "beat", "--loglevel=info"],
             "options": {
-                "cwd": "${workspaceFolder}/services/data-sync"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                }
             },
             "group": "build",
             "presentation": {
@@ -105,7 +90,7 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Start Celery scheduler",
+            "detail": "Start Celery beat scheduler (app.sync.celery_app)",
             "dependsOn": "🐋 Start Infrastructure"
         },
         {
@@ -132,23 +117,18 @@
             "problemMatcher": [],
             "detail": "Start React frontend with hot reload"
         },
-        
-        // Compound Tasks
         {
             "label": "🚀 Start All Services",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "🐋 Start Infrastructure",
-                "🎮 Start Game API",
-                "⚙️ Start Admin API",
-                "🔄 Start Data Sync Worker",
+                "🚀 Start Backend API",
+                "🔄 Start Celery Worker",
                 "⚛️ Start Frontend"
             ],
             "group": "build",
             "detail": "Start all services in development mode"
         },
-        
-        // Stop & Clean
         {
             "label": "⏹️ Stop All Services",
             "type": "shell",
@@ -189,8 +169,6 @@
             "problemMatcher": [],
             "detail": "Stop containers and remove volumes (clean slate)"
         },
-        
-        // Setup Tasks
         {
             "label": "📦 Install Frontend Dependencies",
             "type": "shell",
@@ -214,11 +192,11 @@
         {
             "label": "🐍 Install Backend Dependencies",
             "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "cd '${workspaceFolder}/services/game-api'; pip install -r requirements.txt; cd '${workspaceFolder}/services/admin-api'; pip install -r requirements.txt; cd '${workspaceFolder}/services/data-sync'; pip install -r requirements.txt"
-            ],
+            "command": "python",
+            "args": ["-m", "pip", "install", "-e", ".[dev]"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "build",
             "presentation": {
                 "echo": true,
@@ -229,7 +207,7 @@
                 "clear": false
             },
             "problemMatcher": [],
-            "detail": "Install all Python service dependencies"
+            "detail": "Install the app package + dev deps from root pyproject.toml"
         },
         {
             "label": "🛠️ Setup Dev Environment",
@@ -241,16 +219,14 @@
             "group": "build",
             "detail": "Install all dependencies for development"
         },
-
-        // Code Quality Tasks
         {
-            "label": "🔍 Lint All Python Services (Ruff)",
+            "label": "🔍 Lint All Python (Ruff)",
             "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; ruff check .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; ruff check .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; ruff check ."
-            ],
+            "command": "ruff",
+            "args": ["check", "app", "tests"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -261,16 +237,16 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Run Ruff linter on all Python services"
+            "detail": "Run Ruff linter on app + tests"
         },
         {
-            "label": "✨ Format All Python Services (Ruff)",
+            "label": "✨ Format All Python (Ruff)",
             "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; ruff format .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; ruff format .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; ruff format ."
-            ],
+            "command": "ruff",
+            "args": ["format", "app", "tests"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -284,13 +260,13 @@
             "detail": "Format all Python code with Ruff"
         },
         {
-            "label": "🔎 Type Check All Services (Mypy)",
+            "label": "🔎 Type Check (Mypy)",
             "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; mypy .; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; mypy .; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; mypy ."
-            ],
+            "command": "mypy",
+            "args": ["app"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -301,16 +277,16 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Run Mypy type checker on all Python services"
+            "detail": "Run Mypy type checker on the app package"
         },
         {
-            "label": "🛡️ Security Scan All Services (Bandit)",
+            "label": "🧪 Run Tests",
             "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "Write-Host '=== Game API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/game-api'; bandit -r . -c pyproject.toml; Write-Host '=== Admin API ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/admin-api'; bandit -r . -c pyproject.toml; Write-Host '=== Data Sync ===' -ForegroundColor Cyan; cd '${workspaceFolder}/services/data-sync'; bandit -r . -c pyproject.toml"
-            ],
+            "command": "python",
+            "args": ["tests/test_release_date_rule.py"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -321,19 +297,19 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Run Bandit security scanner on all Python services"
+            "detail": "Run the ADR-0002 release-date rule unit checks"
         },
         {
             "label": "✅ Run All Quality Checks",
             "dependsOrder": "sequence",
             "dependsOn": [
-                "🔍 Lint All Python Services (Ruff)",
-                "✨ Format All Python Services (Ruff)",
-                "🔎 Type Check All Services (Mypy)",
-                "🛡️ Security Scan All Services (Bandit)"
+                "🔍 Lint All Python (Ruff)",
+                "✨ Format All Python (Ruff)",
+                "🔎 Type Check (Mypy)",
+                "🧪 Run Tests"
             ],
             "group": "test",
-            "detail": "Run all code quality checks (Ruff, Mypy, Bandit)"
+            "detail": "Run all code quality checks (Ruff, Mypy, tests)"
         }
     ]
 }

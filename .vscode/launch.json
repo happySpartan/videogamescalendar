@@ -2,21 +2,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "🎮 Debug Game API",
+            "name": "🚀 Debug Backend API",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "main:app",
+                "app.main:app",
                 "--reload",
                 "--port",
                 "8000",
                 "--host",
                 "0.0.0.0"
             ],
-            "cwd": "${workspaceFolder}/services/game-api",
+            "cwd": "${workspaceFolder}",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/services/game-api",
+                "PYTHONPATH": "${workspaceFolder}",
                 "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
                 "REDIS_URL": "redis://localhost:6379/0"
             },
@@ -25,45 +25,43 @@
             "preLaunchTask": "🐋 Start Infrastructure"
         },
         {
-            "name": "⚙️ Debug Admin API",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "main:app",
-                "--reload",
-                "--port",
-                "8001",
-                "--host",
-                "0.0.0.0"
-            ],
-            "cwd": "${workspaceFolder}/services/admin-api",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/services/admin-api",
-                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/0"
-            },
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "🔄 Debug Data Sync Worker",
+            "name": "🔄 Debug Celery Worker",
             "type": "debugpy",
             "request": "launch",
             "module": "celery",
             "args": [
                 "-A",
-                "worker",
+                "app.sync.celery_app",
                 "worker",
                 "--loglevel=debug",
                 "--pool=solo"
             ],
-            "cwd": "${workspaceFolder}/services/data-sync",
+            "cwd": "${workspaceFolder}",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/services/data-sync",
+                "PYTHONPATH": "${workspaceFolder}",
                 "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/1"
+                "REDIS_URL": "redis://localhost:6379/0"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "preLaunchTask": "🐋 Start Infrastructure"
+        },
+        {
+            "name": "⏰ Debug Celery Beat",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "celery",
+            "args": [
+                "-A",
+                "app.sync.celery_app",
+                "beat",
+                "--loglevel=info"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
+                "REDIS_URL": "redis://localhost:6379/0"
             },
             "console": "integratedTerminal",
             "justMyCode": false,
@@ -109,10 +107,10 @@
     ],
     "compounds": [
         {
-            "name": "🚀 Debug All APIs",
+            "name": "🚀 Debug Backend",
             "configurations": [
-                "🎮 Debug Game API",
-                "⚙️ Debug Admin API"
+                "🚀 Debug Backend API",
+                "🔄 Debug Celery Worker"
             ],
             "stopAll": true,
             "preLaunchTask": "🐋 Start Infrastructure"
@@ -120,20 +118,10 @@
         {
             "name": "🌟 Debug Full Stack",
             "configurations": [
-                "🎮 Debug Game API",
-                "⚙️ Debug Admin API",
+                "🚀 Debug Backend API",
+                "🔄 Debug Celery Worker",
                 "⚛️ Debug Frontend (Vite)",
                 "🌐 Launch Chrome (Frontend)"
-            ],
-            "stopAll": true,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "🎯 Debug Backend Only",
-            "configurations": [
-                "🎮 Debug Game API",
-                "⚙️ Debug Admin API",
-                "🔄 Debug Data Sync Worker"
             ],
             "stopAll": true,
             "preLaunchTask": "🐋 Start Infrastructure"

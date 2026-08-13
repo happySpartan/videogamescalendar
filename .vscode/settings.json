@@ -1,25 +1,17 @@
 {
     "git.ignoreLimitWarning": true,
 
-    // Python Virtual Environment Configuration
-    "python.defaultInterpreterPath": "${workspaceFolder}/services/game-api/.venv/Scripts/python.exe",
-    "python.venvPath": "${workspaceFolder}/services",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "python.venvPath": "${workspaceFolder}",
     "python.venvFolders": [
-        "${workspaceFolder}/services/game-api",
-        "${workspaceFolder}/services/admin-api",
-        "${workspaceFolder}/services/data-sync"
+        "${workspaceFolder}/.venv"
     ],
 
-    // Python Analysis
     "python.analysis.extraPaths": [
-        "./services/game-api",
-        "./services/admin-api",
-        "./services/data-sync",
-        "./shared"
+        "./app"
     ],
     "python.analysis.autoImportCompletions": true,
 
-    // Python Linting - Use Ruff instead of flake8
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Enabled": false,
@@ -27,7 +19,6 @@
     "python.linting.mypyEnabled": true,
     "python.linting.banditEnabled": true,
 
-    // Python Formatting - Use Ruff instead of Black
     "python.formatting.provider": "none",
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
@@ -38,7 +29,6 @@
         }
     },
 
-    // Editor Settings
     "editor.formatOnSave": true,
     "editor.rulers": [100],
     "files.exclude": {
@@ -56,12 +46,12 @@
         "**/__pycache__": true
     },
     "terminal.integrated.env.windows": {
-        "PYTHONPATH": "${workspaceFolder};${workspaceFolder}/shared"
+        "PYTHONPATH": "${workspaceFolder}"
     },
     "terminal.integrated.env.linux": {
-        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/shared"
+        "PYTHONPATH": "${workspaceFolder}"
     },
     "terminal.integrated.env.osx": {
-        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/shared"
+        "PYTHONPATH": "${workspaceFolder}"
     }
 }
