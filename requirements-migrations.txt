@@ -1,7 +1,0 @@
-# Migrations tooling. Run from the repo root:
-#   python -m venv .venv && source .venv/bin/activate
-#   pip install -r requirements-migrations.txt
-#   alembic upgrade head
-alembic==1.13.1
-sqlalchemy==2.0.30
-psycopg2-binary==2.9.9

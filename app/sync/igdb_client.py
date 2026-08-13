@@ -170,7 +170,7 @@ class IGDBService:
         if not self.access_token:
             await self.authenticate()
         headers = {
-            "Client-ID": self.client_id,
+            "Client-ID": self.client_id or "",
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
