@@ -10,7 +10,6 @@ import {
 } from '@tabler/icons-react';
 import classes from '../styles/Layout.module.css';
 import MainHeader from './Header';
-import { GameLibraryProvider } from '../context/GameLibraryContext';
 
 const mainLinks = [
   { icon: IconHome2, label: 'Home', to: '/home' },
@@ -38,18 +37,17 @@ const Layout: React.FC = () => {
   const goTo = useCallback((to: string) => navigate(to), [navigate]);
 
   return (
-    <GameLibraryProvider>
-      <AppShell
-        padding={active === 'Calendar' ? 0 : 'md'}
-        navbar={{ width: 60, breakpoint: 'sm' }}
-        header={{ height: 60 }}
-        styles={{
-          main: {
-            background:
-              active === 'Calendar' ? 'linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%)' : '#f7f8fa',
-          },
-        }}
-      >
+    <AppShell
+      padding={active === 'Calendar' ? 0 : 'md'}
+      navbar={{ width: 60, breakpoint: 'sm' }}
+      header={{ height: 60 }}
+      styles={{
+        main: {
+          background:
+            active === 'Calendar' ? 'linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%)' : '#f7f8fa',
+        },
+      }}
+    >
         <AppShell.Header>
           <MainHeader
             currentView={active}
@@ -89,7 +87,6 @@ const Layout: React.FC = () => {
           </div>
         </AppShell.Main>
       </AppShell>
-    </GameLibraryProvider>
   );
 };
 

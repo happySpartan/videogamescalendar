@@ -173,6 +173,23 @@ jobs:
           echo "== /platforms =="
           curl -fsS "http://127.0.0.1:8000/platforms" | python -m json.tool
 
+      - name: Boot Celery worker (for live sync)
+        # The worker must be running to actually consume the enqueued task,
+        # so this only starts when real IGDB credentials are present.
+        if: ${{ secrets.IGDB_CLIENT_ID != '' && secrets.IGDB_CLIENT_SECRET != '' }}
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          nohup celery -A app.sync.celery_app worker --loglevel=info --pool=solo > /tmp/worker.log 2>&1 &
+          for i in $(seq 1 20); do
+            if celery -A app.sync.celery_app inspect ping --timeout 2 2>/dev/null | grep -q pong; then
+              echo "worker ready after ${i}s"; break
+            fi
+            sleep 1
+          done
+          echo "--- worker log tail ---"; tail -5 /tmp/worker.log
+
       - name: Run live IGDB sync (only when real credentials are provided)
         if: ${{ secrets.IGDB_CLIENT_ID != '' && secrets.IGDB_CLIENT_SECRET != '' }}
         env:
@@ -180,23 +197,26 @@ jobs:
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
         run: |
           set -e
-          # Enqueue a delta sync through the admin API (HTTP Bearer auth) and
-          # confirm real rows land in Postgres.
+          # Enqueue a delta sync through the admin API (HTTP Bearer auth). The
+          # Celery worker booted in the prior step consumes it and writes rows.
           RESULT=$(curl -fsS -X POST \
             -H "Authorization: Bearer $ADMIN_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"full_sync": false}' \
             http://127.0.0.1:8000/admin/sync/games)
           echo "sync enqueued: $RESULT"
-          sleep 8
-          echo "== games present in DB =="
-          python - <<'PY'
+          # Give the worker time to process the task, then assert real rows.
+          for i in $(seq 1 30); do
+            N=$(python - <<'PY'
           import os
           from sqlalchemy import create_engine, text
           e = create_engine(os.environ["DATABASE_URL"])
           with e.connect() as c:
-              n = c.execute(text("select count(*) from games")).scalar()
-              print("game rows:", n)
-              if not n:
-                  raise SystemExit("no games synced")
+              print(c.execute(text("select count(*) from games")).scalar() or 0)
           PY
+            )
+            echo "game rows (${i}s): $N"
+            [ "$N" -gt 0 ] && break
+            sleep 2
+          done
+          [ "$N" -gt 0 ] || { echo "FATAL: worker produced no games"; cat /tmp/worker.log; exit 1; }

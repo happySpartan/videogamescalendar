@@ -22,6 +22,10 @@ RUN apt-get update && apt-get install -y \
 # Install the package first (caches deps independent of app source changes).
 COPY pyproject.toml ./
 COPY app/ ./app/
+# Alembic config + migrations so the image can run `alembic upgrade head`
+# (used by the compose `migrate` service and for deploy-time migrations).
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 RUN pip install --no-cache-dir .
 
 # Non-root user

@@ -21,7 +21,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
     languages: false
   });
   
-  // Remove redundant filter fetching since GameLibraryContext handles it
+  // Filter options are provided as props by the parent (useReleaseCalendar).
   // useEffect(() => {
   //   fetchFilterData();
   // }, []);

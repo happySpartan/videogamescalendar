@@ -1,13 +1,11 @@
 // filepath: c:\Users\jonathan.peil\Downloads\ProgProjects\videogamecalendar\frontend\src\components\ListView.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Container, Title, LoadingOverlay, Text, Box, Paper, Collapse, Group, UnstyledButton, Center, Loader, Button } from '@mantine/core';
+import { Container, Title, LoadingOverlay, Text, Box, Paper, Collapse, Group, UnstyledButton, Button } from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
-import { useGameLibrary } from '../context/GameLibraryContext';
 import { formatDate } from '../utils/game.utils';
 import { getWeekBounds } from '../utils/calendar.utils';
-import { Game, FilterOption } from '../types'; // Import types
 import FilterBar from './FilterBar';
-import GameCard from './GameCard';
+import { useReleaseCalendar } from '../hooks/useReleaseCalendar';
 import classes from '../styles/ListView.module.css';
 
 // Helper function to get title from period
@@ -159,28 +157,18 @@ interface ListViewProps {
 }
 
 const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
-  // Non-null assertion is used here as we're certain the hook is used within a GameLibraryProvider
-  const context = useGameLibrary();
-  
-  // Extract state and functions from the context
   const {
-    state,
-    dispatch,
-    loadMoreGames
-  } = context;
-  
-  // Extract state properties
-  const { 
     games,
     filteredGames,
-    loading, 
-    loadingMore,
-    isPeriodChanging,
+    loading,
     error,
     hasMore,
-    filterOptions
-  } = state;
-  
+    filterOptions,
+    loadMore,
+    setPlatformFilter,
+    setGenreFilter,
+  } = useReleaseCalendar({ initialPeriod: period ?? { type: 'week', date: new Date() } });
+
   // State to track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
@@ -216,24 +204,15 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
 
   // Filter handlers
   const handlePlatformFilter = (platformIds: number[]) => {
-    dispatch({ 
-      type: 'SET_FILTER', 
-      payload: { type: 'platforms', ids: platformIds } 
-    });
+    setPlatformFilter(platformIds);
   };
 
   const handleGenreFilter = (genreIds: number[]) => {
-    dispatch({ 
-      type: 'SET_FILTER', 
-      payload: { type: 'genres', ids: genreIds } 
-    });
+    setGenreFilter(genreIds);
   };
 
-  const handleLanguageFilter = (languageIds: number[]) => {
-    dispatch({ 
-      type: 'SET_FILTER', 
-      payload: { type: 'languages', ids: languageIds }
-    });
+  const handleLanguageFilter = (_languageIds: number[]) => {
+    // Languages are not exposed by the /releases contract; keep a no-op.
   };
 
   // Get a title for the current view
@@ -249,30 +228,30 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
     filteredGames.length > 0 ? filteredGames : games,
     period?.type === 'day' ? 'day' : 'week'
   );
-  
+
   // Set up intersection observer for infinite scrolling
   const lastGameElementRef = useRef<HTMLDivElement | null>(null);
-  
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && !isPeriodChanging) {
-          loadMoreGames();
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMore();
         }
       },
       { threshold: 0.5 }
     );
-    
+
     if (lastGameElementRef.current) {
       observer.observe(lastGameElementRef.current);
     }
-    
+
     return () => {
       if (lastGameElementRef.current && observer) {
         observer.unobserve(lastGameElementRef.current);
       }
     };
-  }, [hasMore, loading, loadingMore, loadMoreGames, isPeriodChanging]);
+  }, [hasMore, loading, loadMore]);
 
   // Initialize expanded groups when grouped games change
   useEffect(() => {
@@ -328,7 +307,7 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
       />
       
       <div style={{ position: 'relative', marginTop: '1rem' }}>
-        <LoadingOverlay visible={loading || isPeriodChanging} />
+        <LoadingOverlay visible={loading} />
         
         {searchQuery && (
           <Text mb="md" size="sm" c="dimmed">
@@ -412,13 +391,7 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
           </Container>
         ) : null}
         
-        {(loadingMore && hasMore) && (
-          <Center py="md">
-            <Loader size="md" />
-          </Center>
-        )}
-        
-        {!hasMore && filteredGames.length > 0 && !loading && !loadingMore && (
+        {!hasMore && filteredGames.length > 0 && !loading && (
           <Text ta="center" my="md" c="dimmed">No more games to load</Text>
         )}
       </div>

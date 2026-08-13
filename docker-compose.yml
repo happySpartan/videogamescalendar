@@ -32,9 +32,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Consolidated backend — ONE app image, three roles (web / worker / beat).
-  # Shares a single REDIS_URL so admin-enqueued tasks hit the same broker the
-  # worker consumes.
+  # Consolidated backend — ONE app image, four roles (migrate / web / worker /
+  # beat). Shares a single REDIS_URL so admin-enqueued tasks hit the same
+  # broker the worker consumes.
   app:
     build:
       context: .
@@ -55,11 +55,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # Applies schema migrations before the API/worker start. Uses the same image
+  # (which now bundles alembic + alembic.ini) and runs to completion once.
+  migrate:
+    image: videogame-calendar-app:latest
+    container_name: videogame-calendar-migrate
+    environment:
+      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
+    command: alembic upgrade head
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # Celery worker — same image, different command
   worker:
@@ -72,6 +86,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   # Celery beat scheduler — same image, different command
   beat:
@@ -84,6 +100,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   # Frontend
   frontend:
