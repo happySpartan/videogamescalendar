@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "videogame-calendar"
+version = "1.0.0"
+description = "Video game release calendar — public API, admin API and Celery sync worker in one package."
+requires-python = ">=3.11"
+dependencies = [
+    # Web / API
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "pydantic==2.5.0",
+    "python-multipart==0.0.6",
+    "python-json-logger==2.0.7",
+    # DB
+    "sqlalchemy[asyncio]==2.0.23",
+    "asyncpg==0.29.0",
+    "psycopg2-binary==2.9.9",
+    "alembic==1.13.1",
+    # Scheduling / broker
+    "celery[redis]==5.3.4",
+    "kombu==5.3.4",
+    "redis==4.6.0",
+    # IGDB client
+    "httpx==0.26.0",
+    "python-dotenv==1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.14.0",
+    "bandit[toml]>=1.8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+fix = true
+exclude = [".git", ".mypy_cache", ".ruff_cache", ".venv", "__pycache__", "build", "dist", "node_modules"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "DTZ", "T10", "DJ", "EM",
+    "ISC", "ICN", "PIE", "PT", "Q", "RSE", "RET", "SIM", "TID", "ARG", "PTH",
+    "PD", "PL", "TRY", "RUF",
+]
+ignore = [
+    "E501",     # line-too-long (handled by formatter)
+    "PLR0913",  # too-many-arguments (FastAPI route signatures)
+    "TRY003",   # raise-vanilla-args
+    # Rules below are FastAPI idioms or inherited from the relocated service
+    # code; kept off to avoid churn while preserving the useful checks.
+    "B008",     # Depends()/Body() in default args (standard FastAPI pattern)
+    "ARG001",   # unused route/dep args consumed by dependencies only
+    "DTZ003",   # legacy datetime.utcnow() (works on py311 dev runtime)
+    "EM101",    # string literal in exception
+    "EM102",    # f-string in exception
+    "PLR0917",  # too-many-positional-arguments
+    "PLR2004",  # magic-value-comparison
+    "PLW0603",  # global-statement (redis client holder in app.deps)
+    "TRY300",   # try/except without else
+    "TRY400",   # bare Exception re-raise style
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = [".venv", "venv", "tests", "test"]
+skips = ["B101"]

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MultiSelect, Group, Paper, SimpleGrid } from '@mantine/core';
 import classes from '../styles/FilterBar.module.css';
-import gameService from '../services/game.service';
 import { FilterBarProps } from '../types/filterBar.types';
 import { FilterOption } from '../types';
 

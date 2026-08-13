@@ -2,28 +2,14 @@
   "name": "Video Games Calendar Dev Container",
   "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
   "workspaceFolder": "/workspaces/videogamescalendar",
-  
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
-    },
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "configureZshAsDefaultShell": false,
-      "installOhMyZsh": true,
-      "upgradePackages": true,
-      "username": "vscode",
-      "userUid": "automatic",
-      "userGid": "automatic"
-    },
-    "ghcr.io/devcontainers/features/git:1": {
-      "version": "latest"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     }
   },
-  
   "customizations": {
     "vscode": {
       "settings": {
@@ -46,7 +32,9 @@
           "editor.formatOnSave": true
         },
         "typescript.tsdk": "frontend/node_modules/typescript/lib",
-        "eslint.workingDirectories": ["frontend"],
+        "eslint.workingDirectories": [
+          "frontend"
+        ],
         "files.exclude": {
           "**/__pycache__": true,
           "**/*.pyc": true,
@@ -71,9 +59,13 @@
       ]
     }
   },
-  
-  "forwardPorts": [3000, 8000, 8001, 5432, 6379],
-  
+  "forwardPorts": [
+    3000,
+    8000,
+    8001,
+    5432,
+    6379
+  ],
   "portsAttributes": {
     "3000": {
       "label": "Frontend (Vite)",
@@ -96,7 +88,6 @@
       "onAutoForward": "silent"
     }
   },
-  
   "postCreateCommand": "bash .devcontainer/post-create-codespaces.sh",
   "remoteUser": "vscode"
 }

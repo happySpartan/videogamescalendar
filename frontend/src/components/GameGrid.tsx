@@ -47,7 +47,7 @@ const EndOfListMessage = () => (
 );
 
 // Helper function to get title from period
-const getViewTitleFromPeriod = (period: { type: 'month' | 'week'; date: Date }) => {
+const getViewTitleFromPeriod = (period: { type: 'month' | 'week' | 'day'; date: Date }) => {
   if (period.type === 'month') {
     const monthNames = ["January", "February", "March", "April", "May", "June",
                         "July", "August", "September", "October", "November", "December"];

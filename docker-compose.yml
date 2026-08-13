@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for caching and message broker
+  # Redis for caching AND the Celery broker/backend (single URL — no /0 vs /1 split)
   redis:
     image: redis:7-alpine
     container_name: videogame-calendar-redis
@@ -32,18 +32,22 @@ services:
       timeout: 5s
       retries: 5
 
-  # Game API Service
-  game-api:
+  # Consolidated backend — ONE app image, three roles (web / worker / beat).
+  # Shares a single REDIS_URL so admin-enqueued tasks hit the same broker the
+  # worker consumes.
+  app:
     build:
       context: .
-      dockerfile: services/game-api/Dockerfile
-    container_name: videogame-calendar-game-api
-    environment:
+      dockerfile: Dockerfile
+    image: videogame-calendar-app:latest
+    container_name: videogame-calendar-app
+    environment: &app_env
       - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
       - REDIS_URL=redis://redis:6379/0
       - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
       - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
       - ADMIN_TOKEN=${ADMIN_TOKEN}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     depends_on:
@@ -57,64 +61,29 @@ services:
       timeout: 10s
       retries: 3
 
-  # Data Sync Worker
-  data-sync-worker:
-    build:
-      context: .
-      dockerfile: services/data-sync/Dockerfile
-    container_name: videogame-calendar-data-sync
-    environment:
-      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
-      - REDIS_URL=redis://redis:6379/1
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+  # Celery worker — same image, different command
+  worker:
+    image: videogame-calendar-app:latest
+    container_name: videogame-calendar-worker
+    environment: *app_env
+    command: celery -A app.sync.celery_app worker --loglevel=info
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A worker worker --loglevel=info
 
-  # Data Sync Scheduler
-  data-sync-scheduler:
-    build:
-      context: .
-      dockerfile: services/data-sync/Dockerfile
-    container_name: videogame-calendar-scheduler
-    environment:
-      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
-      - REDIS_URL=redis://redis:6379/1
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+  # Celery beat scheduler — same image, different command
+  beat:
+    image: videogame-calendar-app:latest
+    container_name: videogame-calendar-beat
+    environment: *app_env
+    command: celery -A app.sync.celery_app beat --loglevel=info
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A worker beat --loglevel=info
-
-  # Admin API Service
-  admin-api:
-    build:
-      context: .
-      dockerfile: services/admin-api/Dockerfile
-    container_name: videogame-calendar-admin-api
-    environment:
-      - DATABASE_URL=postgresql://gameuser:gamepass@postgres:5432/gamecalendar
-      - REDIS_URL=redis://redis:6379/0
-      - ADMIN_TOKEN=${ADMIN_TOKEN}
-    ports:
-      - "8001:8001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # Frontend
   frontend:
@@ -124,12 +93,10 @@ services:
     container_name: videogame-calendar-frontend
     environment:
       - VITE_GAME_API_URL=http://localhost:8000
-      - VITE_ADMIN_API_URL=http://localhost:8001
     ports:
       - "3000:80"
     depends_on:
-      - game-api
-      - admin-api
+      - app
 
 volumes:
   postgres_data:

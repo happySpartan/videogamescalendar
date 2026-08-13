@@ -1,235 +1,104 @@
-import { Game, FilterOption, PaginatedResponse } from '../types';
-import { GameResponse, GameFilterOptions } from '../types/game.types';
+// Transitional service adapter.
+//
+// The GameLibraryContext still drives grid/list/header state, and it calls the
+// methods below. Instead of hitting dead /api/* endpoints, this now delegates to
+// the typed TanStack Query client (src/api/client.ts) against the real backend.
+// New UI should use the query hooks in src/hooks/queries.ts directly; this shim
+// will disappear once the context is fully replaced by TanStack Query.
+import apiClient from '../api/client';
+import { Game, FilterOption } from '../types';
 
-// Simple in-memory cache
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
-  expiresIn: number; // milliseconds
+export interface GameFilters {
+  platforms?: number[];
+  genres?: number[];
+  languages?: number[];
+  search?: string;
+}
+
+export interface GameFilterOptions {
+  platforms: FilterOption[];
+  genres: FilterOption[];
+  languages: FilterOption[];
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+function getMonthBounds(date: Date): { from: string; to: string } {
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  return {
+    from: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-01`,
+    to: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(lastDay)}`,
+  };
+}
+
+function getWeekBounds(date: Date): { from: string; to: string } {
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const start = new Date(date);
+  start.setDate(diff);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return {
+    from: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+    to: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`,
+  };
 }
 
 class GameService {
-  private baseUrl: string;
-  private cache: Map<string, CacheItem<any>> = new Map();
-  private cacheExpiration: number = 5 * 60 * 1000; // 5 minutes default
-  private pageSize: number = 20; // Number of games per page
-  
-  constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl || (import.meta.env.VITE_API_URL || 'http://localhost:5050');
-  }
-  
-  // Helper method for making GET requests with caching
-  public async get<T>(endpoint: string, useCache: boolean = true, cacheExpiration?: number): Promise<T> {
-    const cacheKey = endpoint;
-    const now = Date.now();
-    
-    // Try to get from cache if caching is enabled
-    if (useCache && this.cache.has(cacheKey)) {
-      const cachedItem = this.cache.get(cacheKey)!;
-      if (now - cachedItem.timestamp < cachedItem.expiresIn) {
-        console.log(`Using cached data for ${endpoint}`);
-        return cachedItem.data as T;
-      } else {
-        // Cache expired, remove it
-        this.cache.delete(cacheKey);
-      }
-    }
-    
-    // Not in cache or cache disabled, make the request
-    try {
-      console.log(`Fetching data from ${endpoint}`);
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json() as T;
-      
-      // Store in cache if caching is enabled
-      if (useCache) {
-        this.cache.set(cacheKey, {
-          data,
-          timestamp: now,
-          expiresIn: cacheExpiration || this.cacheExpiration
-        });
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
-  }
-  
-  // Get games based on view/period
-  async getGamesByView(view: string): Promise<Game[]> {
-    let endpoint = '';
-    
-    switch (view) {
-      case 'This Month':
-        endpoint = '/api/games?period=current_month';
-        break;
-      case 'Upcoming Releases':
-        endpoint = '/api/games?period=upcoming';
-        break;
-      case 'This Year':
-        endpoint = '/api/games?period=year';
-        break;
-      case 'Next Year': 
-        endpoint = '/api/games?period=next_year';
-        break;
-     
-        // Current week by default
-        const now = new Date();
-        const { start, end } = this.getWeekBounds(now);
-        endpoint = `/api/games?period=date_range&start_date=${start.toISOString().split('T')[0]}&end_date=${end.toISOString().split('T')[0]}`;
-        break;
-      default:
-        endpoint = '/api/games?period=current_month';
-    }
-
-    const response = await this.get<GameResponse>(endpoint);
-    return response.games || [];
-  }
-    // Get games for a specific period (month or week) with optional filters
   async getGamesByPeriod(
-    period: { type: 'month' | 'week', date: Date },
+    period: { type: 'month' | 'week' | 'day'; date: Date },
     page: number = 1,
-    filters?: {
-      platforms?: number[];
-      genres?: number[];
-      languages?: number[];
-      search?: string;
-    }
+    filters?: GameFilters,
   ): Promise<Game[]> {
-    const offset = (page - 1) * this.pageSize;
-    const limit = this.pageSize;
-
-    let endpoint = '/api/games';
-    const params = new URLSearchParams();
-
+    let from: string;
+    let to: string;
     if (period.type === 'month') {
-      params.set('year', period.date.getFullYear().toString());
-      params.set('month', (period.date.getMonth() + 1).toString()); // JavaScript months are 0-based
+      ({ from, to } = getMonthBounds(period.date));
+    } else if (period.type === 'week') {
+      ({ from, to } = getWeekBounds(period.date));
     } else {
-      const { start, end } = this.getWeekBounds(period.date);
-      params.set('start_date', start.toISOString().split('T')[0]);
-      params.set('end_date', end.toISOString().split('T')[0]);
+      const d = pad(period.date.getDate());
+      from = `${period.date.getFullYear()}-${pad(period.date.getMonth() + 1)}-${d}`;
+      to = from;
     }
 
-    // Add filters
-    if (filters) {
-      if (filters.search) {
-        params.set('search', filters.search);
-      }
-      if (filters.genres && filters.genres.length > 0) {
-        // For now, just use the first genre (API doesn't support multiple yet)
-        params.set('genre_id', filters.genres[0].toString());
-      }
-      if (filters.platforms && filters.platforms.length > 0) {
-        // For now, just use the first platform (API doesn't support multiple yet)
-        params.set('platform_id', filters.platforms[0].toString());
-      }
-    }
+    const data = await apiClient.getReleases({
+      from,
+      to,
+      page,
+      limit: 60,
+      genre_id: filters?.genres?.[0],
+      platform_id: filters?.platforms?.[0],
+    });
 
-    params.set('page', page.toString());
-    params.set('limit', limit.toString());
-
-    endpoint += `?${params.toString()}`;
-    console.log('Requesting games with endpoint:', endpoint);
-
-    const response = await this.get<{games: Game[]; pagination: any}>(endpoint, true);
-    return response.games || [];
+    return (data.releases ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      release_date: r.release_date ?? '',
+      first_release_date: r.release_date,
+      cover_url: r.cover_url,
+      platforms: r.platforms,
+      genres: r.genres,
+    }));
   }
-  
-  // Helper to get week bounds
-  private getWeekBounds(date: Date): { start: Date; end: Date } {
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-    
-    const weekStart = new Date(date);
-    weekStart.setDate(diff);
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    return { start: weekStart, end: weekEnd };
-  }
-  
-  // Get filter data (genres, platforms, languages)
+
   async getFilterOptions(): Promise<GameFilterOptions> {
-    try {
-      // Use longer cache expiration for reference data (1 hour)
-      const hourInMs = 60 * 60 * 1000;
-      const [platforms, genres, languages] = await Promise.all([
-        this.getPlatforms(true, hourInMs),
-        this.getGenres(true, hourInMs),
-        this.getLanguages(true, hourInMs)
-      ]);
-      
-      return {
-        platforms,
-        genres,
-        languages
-      };
-    } catch (error) {
-      console.error('Error fetching filter options:', error);
-      return {
-        platforms: [],
-        genres: [],
-        languages: []
-      };
-    }
+    const [platforms, genres] = await Promise.all([this.getPlatforms(), this.getGenres()]);
+    return { platforms, genres, languages: [] };
   }
-  
-  // Get game genres
-  async getGenres(useCache: boolean = true, cacheExpiration?: number): Promise<FilterOption[]> {
-    return this.get<FilterOption[]>('/api/genres', useCache, cacheExpiration);
+
+  async getGenres(): Promise<FilterOption[]> {
+    return apiClient.getGenres();
   }
-  
-  // Get game languages
-  async getLanguages(useCache: boolean = true, cacheExpiration?: number): Promise<FilterOption[]> {
-    return this.get<FilterOption[]>('/api/languages', useCache, cacheExpiration);
+
+  async getPlatforms(): Promise<FilterOption[]> {
+    return apiClient.getPlatforms();
   }
-  
-  // Get game platforms
-  async getPlatforms(useCache: boolean = true, cacheExpiration?: number): Promise<FilterOption[]> {
-    return this.get<FilterOption[]>('/api/platforms', useCache, cacheExpiration);
-  }
-  
-  // Get game companies/developers
-  async getCompanies(useCache: boolean = true, cacheExpiration?: number): Promise<FilterOption[]> {
-    return this.get<FilterOption[]>('/api/companies', useCache, cacheExpiration);
-  }
-  
-  // Get game franchises
-  async getFranchises(useCache: boolean = true, cacheExpiration?: number): Promise<FilterOption[]> {
-    return this.get<FilterOption[]>('/api/franchises', useCache, cacheExpiration);
-  }
-  
-  // Get specific game by ID
-  async getGameById(id: number): Promise<Game> {
-    return this.get<Game>(`/api/game/${id}`);
-  }
-  
-  // Search for games
-  async searchGames(query: string): Promise<Game[]> {
-    if (!query || query.length < 2) {
-      return [];
-    }
-    // Don't cache search results
-    return this.get<Game[]>(`/api/games/search?q=${encodeURIComponent(query)}`, false);
+
+  async getLanguages(): Promise<FilterOption[]> {
+    return [];
   }
 }
 
-// Create and export singleton instance
 export const gameService = new GameService();
 export default gameService;
