@@ -1,0 +1,202 @@
+name: CI
+
+# Runs the offline quality gates plus the runtime verification that needs real
+# Docker + Postgres + Redis (which a bare dev machine may not have). The
+# runtime job applies Alembic migrations to a Postgres service container,
+# boots the consolidated `app.main:app`, and smoke-tests the calendar
+# endpoints. A live IGDB sync is run only when real credentials are provided
+# as repository secrets; otherwise that step is skipped gracefully.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  # Postgres service container credentials (must match the app's default).
+  PGHOST: localhost
+  PGPORT: 5432
+  PGDATABASE: gamecalendar
+  PGUSER: gameuser
+  PGPASSWORD: gamepass
+
+jobs:
+  quality:
+    name: Lint / typecheck / unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend (editable + dev deps)
+        run: pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check app tests
+
+      - name: Ruff format check
+        run: ruff format --check app tests
+
+      - name: Mypy typecheck
+        run: mypy app
+
+      - name: ADR-0002 release-date rule unit tests
+        run: python tests/test_release_date_rule.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: TypeScript typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Frontend production build
+        working-directory: frontend
+        run: npm run build
+
+  docker-build:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (root Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: videogame-calendar-app:ci
+          load: true
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          push: false
+          tags: videogame-calendar-frontend:ci
+          load: true
+
+      - name: Confirm images exist
+        run: docker image inspect videogame-calendar-app:ci videogame-calendar-frontend:ci
+
+  runtime:
+    name: Runtime verification (real Postgres + Redis)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: gamecalendar
+          POSTGRES_USER: gameuser
+          POSTGRES_PASSWORD: gamepass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gameuser -d gamecalendar"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://gameuser:gamepass@localhost:5432/gamecalendar
+      REDIS_URL: redis://localhost:6379/0
+      ADMIN_TOKEN: "ci-admin-token"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend (editable + dev deps)
+        run: pip install -e ".[dev]"
+
+      - name: Apply Alembic migrations on real Postgres
+        run: alembic upgrade head
+
+      - name: Boot the consolidated API
+        run: |
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/api.log 2>&1 &
+          # Wait for /health to report healthy (DB + Redis connected).
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health >/tmp/health.json 2>/dev/null; then
+              echo "API up after ${i}s"; break
+            fi
+            sleep 1
+          done
+          cat /tmp/health.json
+          python - <<'PY'
+          import json, sys
+          h = json.load(open("/tmp/health.json"))
+          ok = h.get("database") == "connected" and h.get("redis") == "connected"
+          print("health:", h)
+          if not ok:
+              print("FATAL: DB/Redis not connected"); sys.exit(1)
+          PY
+
+      - name: Smoke-test public endpoints
+        run: |
+          set -e
+          echo "== /releases (a month window) =="
+          curl -fsS "http://127.0.0.1:8000/releases?from=2030-01-01&to=2030-01-31&limit=50" | python -m json.tool
+          echo "== /genres =="
+          curl -fsS "http://127.0.0.1:8000/genres" | python -m json.tool
+          echo "== /platforms =="
+          curl -fsS "http://127.0.0.1:8000/platforms" | python -m json.tool
+
+      - name: Run live IGDB sync (only when real credentials are provided)
+        if: ${{ secrets.IGDB_CLIENT_ID != '' && secrets.IGDB_CLIENT_SECRET != '' }}
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          set -e
+          # Enqueue a delta sync through the admin API (HTTP Bearer auth) and
+          # confirm real rows land in Postgres.
+          RESULT=$(curl -fsS -X POST \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"full_sync": false}' \
+            http://127.0.0.1:8000/admin/sync/games)
+          echo "sync enqueued: $RESULT"
+          sleep 8
+          echo "== games present in DB =="
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          e = create_engine(os.environ["DATABASE_URL"])
+          with e.connect() as c:
+              n = c.execute(text("select count(*) from games")).scalar()
+              print("game rows:", n)
+              if not n:
+                  raise SystemExit("no games synced")
+          PY
