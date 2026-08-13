@@ -6,16 +6,13 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // Proxy API requests to microservices during development
+      // Proxy API requests to the consolidated single-app backend during development.
+      // The admin routes live on the SAME app (app.main, port 8000) — there is no
+      // separate :8001 admin service anymore.
       '/api/games': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
-      },
-      '/api/admin': {
-        target: 'http://localhost:8001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/admin/, '')
       }
     }
   },
@@ -27,6 +24,5 @@ export default defineConfig({
   define: {
     // Ensure environment variables are available at build time
     __GAME_API_URL__: JSON.stringify(process.env.VITE_GAME_API_URL || 'http://localhost:8000'),
-    __ADMIN_API_URL__: JSON.stringify(process.env.VITE_ADMIN_API_URL || 'http://localhost:8001'),
   }
 });

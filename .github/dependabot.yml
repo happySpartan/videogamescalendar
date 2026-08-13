@@ -1,0 +1,39 @@
+# Dependabot version-updates configuration.
+#
+# The backend was consolidated into a single `app/` package with all Python deps
+# declared at the repo root (pyproject.toml) — there are no `services/*` subprojects
+# anymore. This file pins Dependabot to the CURRENT real manifests so it stops
+# auto-scanning the deleted `services/{game-api,admin-api,data-sync}` directories
+# (which the pre-consolidation dependency graph still referenced, generating broken
+# "Graph Update: pip in /services/..." runs).
+
+version: 2
+updates:
+  # Python app + migration tooling (root pyproject.toml / requirements-migrations.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+
+  # Frontend (React / Vite / TanStack Query)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "javascript"
+
+  # GitHub Actions workflows (ci.yml)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
