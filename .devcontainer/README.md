@@ -12,36 +12,35 @@ If you're using GitHub Codespaces, the environment is automatically set up for y
 4. Start developing!
 
 The setup automatically:
-- Installs Python 3.11 and Node.js 20
+- Installs Python 3.12 and Node.js 20
 - Installs all Python and npm dependencies
-- Starts PostgreSQL and Redis containers
+- Starts PostgreSQL 17 and Redis 7 containers
 - Configures VS Code extensions
 
 ## What's Included
 
 ### Development Tools
-- **Python 3.11** with common development packages (black, flake8, pytest, mypy)
-- **Node.js 20** for frontend development
+- **Python 3.12** with the app package + dev deps installed from `pyproject.toml`
+- **Node.js 20** for the React/Vite frontend
 - **PostgreSQL Client** for database interactions
 - **Redis CLI** for cache management
 - **Docker-in-Docker** for container management
 - **GitHub CLI** for repository management
 
 ### Services
-- **PostgreSQL 15** - Main database
-- **Redis 7** - Caching and message broker
-- **Game API** - FastAPI service on port 8000
-- **Admin API** - FastAPI service on port 8001
-- **Frontend** - Vite dev server on port 3000
+- **PostgreSQL 17** - Main database (port 5432)
+- **Redis 7** - Cache and Celery broker/backend (port 6379)
+- **Backend** - ONE FastAPI process for public + admin routes (port 8000)
+- **Frontend** - Vite dev server (port 3000)
 
-### VS Code Extensions
-The devcontainer automatically installs:
-- Python development tools (Pylance, Black formatter, Flake8)
-- Frontend tools (ESLint, Prettier)
-- Database tools (SQLTools with PostgreSQL driver)
-- Git tools (GitLens, GitHub PR)
-- Docker extension
-- And more useful utilities
+## Architecture (one app)
+
+The backend is a **single consolidated app** (`app/`), not three microservices:
+- `app/main.py` — FastAPI entry (`uvicorn app.main:app`), serves public + admin routes
+- `app/api.py` — public routes (`/games`, `/releases`, `/genres`, `/platforms`, `/games/search`)
+- `app/admin.py` — token-gated admin routes (`/admin/*`)
+- `app/sync/` — IGDB sync logic, Celery `celery_app.py`, worker
+- `alembic/` — database migrations
 
 ## Getting Started
 
@@ -59,56 +58,42 @@ The devcontainer automatically installs:
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-### Opening the Project
+#### Opening the Project
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/happySpartan/videogamescalendar.git
-   cd videogamescalendar
-   ```
+```bash
+git clone https://github.com/happySpartan/videogamescalendar.git
+cd videogamescalendar
+cp .env.example .env   # then add your IGDB credentials
+code .
+```
 
-2. Copy `.env.example` to `.env` and update with your credentials:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Open in VS Code:
-   ```bash
-   code .
-   ```
-
-4. When prompted, click **"Reopen in Container"** or:
-   - Press `F1` or `Ctrl+Shift+P`
-   - Select "Dev Containers: Reopen in Container"
-
-5. Wait for the container to build and the post-create script to complete.
+When prompted, click **"Reopen in Container"** (or `F1` → "Dev Containers: Reopen in Container") and wait for the post-create script to complete.
 
 ## Development Workflow
+
+### Running the Backend
+```bash
+# One process for public + admin API
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Celery worker (consumes IGDB sync tasks)
+celery -A app.sync.celery_app worker --loglevel=info
+
+# Celery beat (scheduled syncs)
+celery -A app.sync.celery_app beat --loglevel=info
+```
+The API is available at http://localhost:8000 (Swagger UI at `/docs`).
 
 ### Running the Frontend
 ```bash
 cd frontend
 npm run dev
 ```
-The frontend will be available at http://localhost:3000
+The frontend will be available at http://localhost:3000.
 
-### Running the Game API
+### Running Everything in Docker
 ```bash
-cd services/game-api
-uvicorn main:app --reload --host 0.0.0.0
-```
-The API will be available at http://localhost:8000
-
-### Running the Admin API
-```bash
-cd services/admin-api
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
-```
-The Admin API will be available at http://localhost:8001
-
-### Running All Services
-```bash
-docker-compose up
+docker compose up --build
 ```
 
 ### Database Operations
@@ -120,19 +105,14 @@ psql -h postgres -U gameuser -d gamecalendar
 
 Run migrations:
 ```bash
-python scripts/setup_migrations.py
+alembic upgrade head
 ```
 
 ### Testing
 
-Run Python tests:
+Verify the EU release-date rule (standalone, no pytest needed):
 ```bash
-pytest
-```
-
-Run with coverage:
-```bash
-pytest --cov=services --cov-report=html
+python tests/test_release_date_rule.py
 ```
 
 ## Environment Variables
@@ -156,10 +136,10 @@ ADMIN_TOKEN=your_secure_token_here
 
 ### Database connection issues
 - Check if PostgreSQL is running: `pg_isready -h postgres -U gameuser -d gamecalendar`
-- Check the logs: `docker-compose logs postgres`
+- Check the logs: `docker compose logs postgres`
 
 ### Port conflicts
-- Make sure ports 3000, 5432, 6379, 8000, and 8001 are not in use
+- Make sure ports 3000, 5432, 6379, and 8000 are not in use
 - Stop other services using these ports
 
 ### Node modules issues
@@ -172,7 +152,7 @@ npm install
 ### Python dependency issues
 ```bash
 pip install --upgrade pip
-pip install -r services/game-api/requirements.txt --force-reinstall
+pip install -e ".[dev]" --force-reinstall
 ```
 
 ## Additional Resources

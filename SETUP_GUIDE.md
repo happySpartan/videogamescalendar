@@ -1,436 +1,190 @@
 # Complete Setup Guide
 
-## Current Issues & Solutions
+> **Project layout note:** the backend is **one consolidated app** (`app/`), not three
+> services. A single FastAPI process serves both public and admin routes, and the same
+> package runs the Celery worker/beat plus Alembic migrations. References to the old
+> `services/game-api`, `services/admin-api`, `services/data-sync` layout no longer apply —
+> start processes with `uvicorn app.main:app` / `celery -A app.sync.celery_app`.
 
-### Issue 1: Python Version Mismatch ❌
-
-**Problem:** You have Python 3.13 installed (`c:\Python313\python.exe`), but the project requires Python 3.12.
-
-**Solution:**
-
-1. **Download Python 3.12:**
-   - Go to: https://www.python.org/downloads/release/python-31210/
-   - Download "Windows installer (64-bit)"
-
-2. **Install Python 3.12:**
-   - Run the installer
-   - ✅ Check "Add python.exe to PATH"
-   - ✅ Check "Install for all users" (optional)
-   - Click "Install Now"
-
-3. **Verify Installation:**
-   ```powershell
-   python --version
-   # Should show: Python 3.12.x
-   ```
-
-4. **If you still see Python 3.13:**
-   ```powershell
-   # Use py launcher to specify version
-   py -3.12 --version
-
-   # Or add Python 3.12 to PATH before Python 3.13
-   # Edit System Environment Variables → Path
-   # Move C:\Python312\ ABOVE C:\Python313\
-   ```
-
----
-
-### Issue 2: pip-system-certs Error ⚠️
-
-**Problem:**
-```
-pip_system_certs: ERROR: could not inject truststore: module 'pip._vendor.truststore' has no attribute 'SSLContext'
-```
-
-**Solution:**
-
-```powershell
-# Uninstall the problematic package
-pip uninstall pip-system-certs -y
-
-# Or if using py launcher:
-py -3.12 -m pip uninstall pip-system-certs -y
-```
-
-**Note:** `pip-system-certs` is only needed for corporate proxies like ZScaler. If you don't need it, you're good to go.
-
-**If you DO need ZScaler certificates:**
-```powershell
-# Set environment variables instead
-$env:REQUESTS_CA_BUNDLE = "C:\path\to\zscaler\cert.pem"
-$env:SSL_CERT_FILE = "C:\path\to\zscaler\cert.pem"
-```
-
----
-
-### Issue 3: Missing Python Dependencies ❌
-
-**Problem:**
-```
-ModuleNotFoundError: No module named 'redis'
-ModuleNotFoundError: No module named 'celery'
-```
-
-**Solution - Install All Dependencies:**
-
-```powershell
-# Navigate to project root
-cd C:\Users\jonathan.peil\Downloads\ProgProjects\videogamecalendar
-
-# Game API
-cd services\game-api
-pip install -r requirements.txt
-
-# Admin API
-cd ..\admin-api
-pip install -r requirements.txt
-
-# Data Sync
-cd ..\data-sync
-pip install -r requirements.txt
-
-# Return to project root
-cd ..\..
-```
-
-**Or use the VS Code Task:**
-1. Press `Ctrl+Shift+P`
-2. Select "Tasks: Run Task"
-3. Choose **"🐍 Install Backend Dependencies"**
-
----
-
-## Step-by-Step Setup (Fresh Start)
-
-### 1. Prerequisites
+## Prerequisites
 
 - ✅ Python 3.12 installed
 - ✅ Node.js 18+ installed
 - ✅ Docker or Podman installed
 - ✅ Git installed
 
-### 2. Clone & Navigate
+## 1. Clone & Navigate
 
 ```powershell
-git clone <your-repo-url>
-cd videogamecalendar
+git clone https://github.com/happySpartan/videogamescalendar.git
+cd videogamescalendar
 ```
 
-### 3. Fix pip-system-certs
+## 2. Install Dependencies
 
 ```powershell
-pip uninstall pip-system-certs -y
-```
-
-### 4. Install All Dependencies
-
-**Option A: Use VS Code Tasks (Recommended)**
-1. Open project in VS Code
-2. Press `Ctrl+Shift+P` → "Tasks: Run Task"
-3. Select **"🛠️ Setup Dev Environment"**
-
-**Option B: Manual Install**
-
-```powershell
-# Backend
-cd services\game-api
-pip install -r requirements.txt
-
-cd ..\admin-api
-pip install -r requirements.txt
-
-cd ..\data-sync
-pip install -r requirements.txt
+# Backend (single app package from pyproject.toml)
+pip install -e ".[dev]"
 
 # Frontend
-cd ..\..\frontend
+cd frontend
 npm install
+cd ..
 ```
 
-### 5. Setup Environment Files
+## 3. Setup Environment Files
 
 ```powershell
-# Copy environment file
-copy .env.example .env
-
-# Edit .env and add your IGDB credentials:
-# IGDB_CLIENT_ID=your_client_id
-# IGDB_CLIENT_SECRET=your_client_secret
-# ADMIN_TOKEN=your_secure_token
+Copy-Item .env.example .env
+# then edit .env and set your IGDB credentials:
+#   IGDB_CLIENT_ID=your_client_id
+#   IGDB_CLIENT_SECRET=your_client_secret
+#   ADMIN_TOKEN=your_secure_token
 ```
 
-### 6. Start Infrastructure
+## 4. Start Infrastructure
 
-**Option A: Using Podman**
 ```powershell
+# Podman
 podman compose up postgres redis -d
+
+# Docker
+docker compose up postgres redis -d
 ```
 
-**Option B: Using Docker**
-```powershell
-docker-compose up postgres redis -d
-```
+Verify with `podman compose ps` / `docker compose ps` — postgres and redis should be "Running".
 
-**Option C: Use VS Code Task**
-1. Press `Ctrl+Shift+P` → "Tasks: Run Task"
-2. Select **"🐋 Start Infrastructure"**
-
-### 7. Verify Infrastructure is Running
+## 5. Run Migrations
 
 ```powershell
-# For Podman
-podman compose ps
-
-# For Docker
-docker-compose ps
-
-# Should show postgres and redis as "Running"
+pip install -r requirements-migrations.txt   # ensure alembic is available
+alembic upgrade head
 ```
 
-### 8. Start Services
+## 6. Start the Backend
 
-**Option A: Start All Services (Recommended for First Time)**
-1. Press `Ctrl+Shift+P` → "Tasks: Run Task"
-2. Select **"🚀 Start All Services"**
+The **one** FastAPI process serves both the public API and the token-gated admin API:
 
-**Option B: Start Individual Services**
-
-**Terminal 1 - Game API:**
 ```powershell
-cd services\game-api
-uvicorn main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
-**Terminal 2 - Admin API:**
+Start the Celery worker (and beat for scheduled syncs) in separate terminals:
+
 ```powershell
-cd services\admin-api
-uvicorn main:app --reload --port 8001
+celery -A app.sync.celery_app worker --loglevel=info
+celery -A app.sync.celery_app beat --loglevel=info
 ```
 
-**Terminal 3 - Data Sync Worker:**
-```powershell
-cd services\data-sync
-celery -A worker worker --loglevel=info --pool=solo
-```
+## 7. Start the Frontend
 
-**Terminal 4 - Frontend:**
 ```powershell
 cd frontend
 npm run dev
+cd ..
 ```
 
-### 9. Access the Application
+## 8. Access the Application
 
 - **Frontend:** http://localhost:3000
-- **Game API Docs:** http://localhost:8000/docs
-- **Admin API Docs:** http://localhost:8001/docs
+- **Backend API (public + admin):** http://localhost:8000 — Swagger UI at http://localhost:8000/docs
+- **PostgreSQL:** port `5432` (db `gamecalendar`, user `gameuser`, pass `gamepass`)
+- **Redis:** port `6379`
 
 ---
 
-## Understanding VS Code Debug Configurations
+## Running the Full Stack in Docker
 
-### Individual Debuggers
+Compose runs **one app image** in five roles, with automatic migration gating:
 
-1. **🎮 Debug Game API**
-   - Debugs the Game API service
-   - Sets breakpoints in `services/game-api/`
-   - Port: 8000
+```powershell
+docker compose up --build
+```
 
-2. **⚙️ Debug Admin API**
-   - Debugs the Admin API service
-   - Sets breakpoints in `services/admin-api/`
-   - Port: 8001
+Or individual roles: `docker compose up app`, `docker compose up worker`, etc.
+`migrate` runs `alembic upgrade head` to completion before `app`/`worker`/`beat` start.
 
-3. **🔄 Debug Data Sync Worker**
-   - Debugs the Celery worker
-   - Sets breakpoints in `services/data-sync/`
+---
 
-4. **⚛️ Debug Frontend (Vite)**
-   - Launches Vite dev server
-   - For debugging the React app
+## API Surface
 
-5. **🌐 Launch Chrome (Frontend)**
-   - Opens Chrome browser pointed at http://localhost:3000
-   - Used WITH "Debug Frontend (Vite)"
-   - Allows you to debug in browser + VS Code
+**Public** (no auth)
+- `GET /health` · `GET /genres` · `GET /platforms`
+- `GET /games` · `GET /games/{id}` · `GET /games/search?q=...`
+- `GET /releases`
 
-6. **🧪 Debug Python Script**
-   - Generic debugger for ANY Python file
-   - Open a `.py` file and press F5
-   - Useful for utility scripts, tests, etc.
+**Admin** (token-gated; send `Authorization: Bearer <ADMIN_TOKEN>` to `/admin/*`):
+- `GET /admin/stats/overview` · `GET /admin/stats/database`
+- `GET /admin/cache/stats` · `DELETE /admin/cache/clear`
+- `POST /admin/sync/games` · `POST /admin/sync/games/{igdb_id}`
+- `GET /admin/data/games/recent` · `GET /admin/data/games/problematic`
+- `POST /admin/maintenance/cleanup`
 
-### Compound Configurations (Multiple Services)
+---
 
-1. **🚀 Debug All APIs**
-   - Game API + Admin API
-   - Both running with debugger attached
+## Code Quality Checks
 
-2. **🌟 Debug Full Stack**
-   - Game API + Admin API + Frontend (Vite) + Chrome
-   - Everything running, full debugging capability
+```powershell
+ruff check app tests
+ruff format --check app tests
+mypy app
+bandit -r app
+```
 
-3. **🎯 Debug Backend Only**
-   - Game API + Admin API + Data Sync Worker
-   - All backend services with debugger
+The EU release-date rule is unit-verified without pytest:
+
+```powershell
+.venv\Scripts\python tests\test_release_date_rule.py
+```
 
 ---
 
 ## Common Issues & Fixes
 
 ### "No module named 'X'"
-
-**Fix:**
 ```powershell
-cd services\<service-name>
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
-### "Connection refused" or "Target machine actively refused"
-
-**This means the debugger can't connect. Usually because:**
-- Another instance is already running (kill it first)
-- Port is in use (check with `netstat -ano | findstr :8000`)
-
-**Fix:**
+### "Connection refused"
+PostgreSQL/Redis not running. Restart infra:
 ```powershell
-# Kill process on port 8000
-npx kill-port 8000 8001 3000
-```
-
-### PostgreSQL/Redis not running
-
-**Fix:**
-```powershell
-# Check status
-podman compose ps
+docker compose restart postgres redis
 # or
-docker-compose ps
-
-# Restart if needed
 podman compose restart postgres redis
 ```
 
-### Python 3.13 still being used
-
-**Fix:**
+### Port in use
 ```powershell
-# Use py launcher
-py -3.12 -m pip install -r requirements.txt
+npx kill-port 8000 3000
+```
 
-# Or update PATH to prioritize Python 3.12
-# Windows Settings → Environment Variables → Path
-# Move C:\Python312\ to the TOP
+### Postgres/Redis not running
+```powershell
+podman compose ps
+docker compose restart postgres redis
 ```
 
 ---
 
-## Recommended Development Workflow
+## Environment Variables
 
-### Daily Workflow
-
-1. **Start Infrastructure** (only once per day)
-   ```powershell
-   podman compose up postgres redis -d
-   ```
-
-2. **Start Services** (use VS Code tasks or manual)
-   - Press `F5` → Select **"🌟 Debug Full Stack"**
-   - OR use tasks: **"🚀 Start All Services"**
-
-3. **Make Changes**
-   - Hot reload is enabled for all services
-   - Just save your files and see changes instantly
-
-4. **Stop Services**
-   - Press `Ctrl+C` in each terminal
-   - OR click "Stop" in VS Code Debug panel
-
-5. **Stop Infrastructure** (end of day)
-   ```powershell
-   podman compose down
-   ```
-
-### Code Quality Checks
-
-**Before committing code:**
-```powershell
-# Run all quality checks
-# Use VS Code Task: "✅ Run All Quality Checks"
-
-# Or manually:
-cd services\game-api
-ruff check .
-ruff format .
-mypy .
-bandit -r . -c pyproject.toml
-```
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Postgres DSN (`postgresql://user:pass@host:5432/gamecalendar`) |
+| `REDIS_URL` | Redis URL for cache + Celery broker/backend (a single URL) |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB API credentials for sync |
+| `ADMIN_TOKEN` | Bearer token gating the `/admin/*` routes |
 
 ---
 
-## Quick Commands Reference
+## Recommended Workflow
 
-### Infrastructure
-```powershell
-# Start
-podman compose up postgres redis -d
-
-# Stop
-podman compose down
-
-# Clean (remove data)
-podman compose down -v
-```
-
-### Game API
-```powershell
-cd services\game-api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-### Admin API
-```powershell
-cd services\admin-api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
-```
-
-### Data Sync
-```powershell
-cd services\data-sync
-pip install -r requirements.txt
-celery -A worker worker --loglevel=info --pool=solo
-```
-
-### Frontend
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## Need Help?
-
-1. **Check logs:**
-   - Backend: Look in terminal output
-   - Podman: `podman compose logs postgres redis`
-   - Frontend: Browser console (F12)
-
-2. **Clean restart:**
-   ```powershell
-   podman compose down -v
-   podman compose up postgres redis -d
-   # Restart all services
-   ```
-
-3. **Verify installations:**
-   ```powershell
-   python --version  # Should be 3.12.x
-   node --version    # Should be 18.x or higher
-   podman --version  # or docker --version
-   ```
+1. Start infra once/day: `docker compose up postgres redis -d`
+2. Run migrations: `alembic upgrade head`
+3. Start backend: `uvicorn app.main:app --reload --port 8000`
+4. Start worker/beat: `celery -A app.sync.celery_app ...`
+5. Start frontend: `cd frontend && npm run dev`
+6. Stop: `Ctrl+C` in each terminal; end of day `docker compose down`
 
 Happy coding! 🚀
