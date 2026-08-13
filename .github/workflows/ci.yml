@@ -128,6 +128,11 @@ jobs:
       DATABASE_URL: postgresql://gameuser:gamepass@localhost:5432/gamecalendar
       REDIS_URL: redis://localhost:6379/0
       ADMIN_TOKEN: "ci-admin-token"
+      # IGDB creds surfaced as job-level env (secrets are NOT usable in a step
+      # `if:` directly — they ARE allowed in job env). The live-sync steps gate
+      # on env.IGDB_CLIENT_ID/SECRET being non-empty.
+      IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+      IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
 
     steps:
       - uses: actions/checkout@v4
@@ -176,7 +181,7 @@ jobs:
       - name: Boot Celery worker (for live sync)
         # The worker must be running to actually consume the enqueued task,
         # so this only starts when real IGDB credentials are present.
-        if: ${{ secrets.IGDB_CLIENT_ID != '' && secrets.IGDB_CLIENT_SECRET != '' }}
+        if: ${{ env.IGDB_CLIENT_ID != '' && env.IGDB_CLIENT_SECRET != '' }}
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
@@ -191,7 +196,7 @@ jobs:
           echo "--- worker log tail ---"; tail -5 /tmp/worker.log
 
       - name: Run live IGDB sync (only when real credentials are provided)
-        if: ${{ secrets.IGDB_CLIENT_ID != '' && secrets.IGDB_CLIENT_SECRET != '' }}
+        if: ${{ env.IGDB_CLIENT_ID != '' && env.IGDB_CLIENT_SECRET != '' }}
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
