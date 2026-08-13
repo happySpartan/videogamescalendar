@@ -1,24 +1,36 @@
-# Video Game Calendar - Complete Documentation
+# Video Game Calendar — Complete Documentation
 
 ## Overview
 
-The Video Game Calendar is a modern web application that displays upcoming video game releases. It has evolved from a monolithic Flask application to a scalable microservices architecture using React frontend, FastAPI services, PostgreSQL database, and Redis caching.
+The Video Game Calendar is a modern web application that displays upcoming video game
+releases. It uses a React/TypeScript frontend, a **single consolidated FastAPI backend**,
+PostgreSQL, and Redis (which doubles as the Celery broker/backend).
 
 ## Architecture
 
-### Microservices Architecture
+### Single-app architecture
 ```
-Frontend (React/Vite) → Game API (FastAPI) → PostgreSQL
-        ↓                   ↓                   ↑
-    Admin API (FastAPI) → Redis Cache ←→ Data Sync (Celery)
+Frontend (React/Vite) ──► FastAPI app (app.main) ──► PostgreSQL
+                                  │   ▲
+                                  ▼   │
+                             Redis Cache
+                                  ▲
+                                  │
+                    Celery worker/beat (app.sync)
 ```
+One Python package (`app/`) runs every backend role:
+- **Web** — one FastAPI process serves **both** public routes (`app.api`) and token-gated
+  admin routes (`app.admin`)
+- **Worker** — consumes IGDB sync tasks enqueued by the admin API
+- **Beat** — schedules recurring sync/cleanup
+- **Migrate** — Alembic schema migrations
 
 ### Technology Stack
-- **Frontend**: React 18, TypeScript, Vite, Mantine UI
-- **Backend Services**: FastAPI with async support
-- **Database**: PostgreSQL 15 with JSONB optimization
-- **Cache/Message Queue**: Redis 7
-- **Background Jobs**: Celery workers
+- **Frontend**: React, TypeScript, Vite, React Router, TanStack Query
+- **Backend**: FastAPI (async), SQLAlchemy ORM, Pydantic
+- **Database**: PostgreSQL 17 with trigram (`pg_trgm`) search
+- **Cache / Message Queue**: Redis 7 (single `REDIS_URL` for cache + Celery broker/backend)
+- **Background Jobs**: Celery (worker + beat)
 - **Containerization**: Docker & Docker Compose
 - **Migrations**: Alembic
 
@@ -26,147 +38,120 @@ Frontend (React/Vite) → Game API (FastAPI) → PostgreSQL
 
 ```
 videogamecalendar/
-├── services/
-│   ├── game-api/          # Primary game data API (Port 8000)
-│   ├── admin-api/         # Administrative interface (Port 8001)
-│   └── data-sync/         # Background IGDB synchronization (Celery)
-├── shared/
-│   ├── models/            # PostgreSQL SQLAlchemy models
-│   ├── database/          # Database utilities and connection pooling
-│   └── utils/             # Common utilities
-├── frontend/              # React application (Port 3000)
-├── infrastructure/        # Docker Compose configurations
-├── scripts/              # Migration and setup scripts
-└── backend/              # Legacy Flask app (being phased out)
+├── app/                    # The consolidated backend package
+│   ├── main.py             # FastAPI entry (public + admin), /health
+│   ├── api.py              # Public routes: /games, /releases, /genres, /platforms, /games/search
+│   ├── admin.py            # Token-gated admin routes under /admin/*
+│   ├── config.py           # Settings (DB URL, IGDB creds, admin token)
+│   ├── db.py               # Database engine/session
+│   ├── deps.py             # Shared dependencies (e.g. Redis client)
+│   ├── models/             # SQLAlchemy models (game, genre, platform, company, ...)
+│   └── sync/               # IGDB sync logic, Celery app + worker
+├── alembic/                # Database migrations
+├── frontend/               # React application (port 3000)
+├── infrastructure/         # init.sql etc.
+├── tests/                  # Backend tests (ADR-0002 release-date rule)
+├── Dockerfile              # One image for web/worker/beat/migrate
+└── docker-compose.yml      # postgres, redis, app, migrate, worker, beat, frontend
 ```
 
 ## Quick Start
 
 ### Prerequisites
 - Docker and Docker Compose
-- Python 3.11+
+- Python 3.12
 - Node.js 18+
-- PostgreSQL 15+ (for local development)
-- Redis 7+ (for local development)
+- PostgreSQL 17 + Redis 7 (or use the compose containers)
 
 ### 1. Environment Setup
 ```bash
-# Clone repository
-git clone <repository-url>
-cd videogamecalendar
-
-# Copy environment files
+git clone https://github.com/happySpartan/videogamescalendar.git
+cd videogamescalendar
 cp .env.example .env
 # Edit .env with your IGDB API credentials
 ```
 
 ### 2. Infrastructure (Recommended: Docker)
 ```bash
-# Start all services with Docker
-docker-compose up --build -d
+# Start everything (app + worker + beat + frontend, auto-migrates)
+docker compose up --build
 
-# Or start infrastructure only
-docker-compose up postgres redis -d
+# Or infrastructure only, then run locally
+docker compose up postgres redis -d
 ```
 
-### 3. Manual Development Setup (Alternative)
-
-#### Database Setup
+### 3. Local Development (Alternative)
 ```bash
-# Install migration dependencies
-pip install -r scripts/requirements.txt
+# Install backend (app package + dev deps)
+python -m venv .venv
+.venv/bin/activate         # or .venv\Scripts\Activate.ps1 on Windows
+pip install -e ".[dev]"
 
-# Initialize database
-python scripts/setup_migrations.py init
-python scripts/setup_migrations.py create-initial
-python scripts/setup_migrations.py migrate
-
-# Optional: Migrate existing SQLite data
-python scripts/migrate_sqlite_to_postgresql.py backend/gamecalendar.db
+# Migrations
+alembic upgrade head
 ```
-
-#### Backend Services (3 terminals)
+Then in separate terminals:
 ```bash
-# Terminal 1 - Game API
-cd services/game-api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+# Terminal 1 — backend (public + admin on one process)
+uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 - Admin API
-cd services/admin-api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
+# Terminal 2 — Celery worker (processes sync tasks)
+celery -A app.sync.celery_app worker --loglevel=info
 
-# Terminal 3 - Data Sync Worker
-cd services/data-sync
-pip install -r requirements.txt
-celery -A worker worker --loglevel=info
-```
+# Terminal 3 — Celery beat (scheduled syncs)
+celery -A app.sync.celery_app beat --loglevel=info
 
-#### Frontend
-```bash
-# Terminal 4 - Frontend
+# Terminal 4 — frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-## Service Documentation
+## API Documentation
 
-### Game API Service (Port 8000)
-**Purpose**: Primary API for game data operations
-
-**Key Endpoints**:
+**Public** (no auth)
+- `GET /health` - DB + Redis liveness
 - `GET /games` - Paginated game listing with filtering
 - `GET /games/{id}` - Detailed game information
-- `GET /games/search` - Full-text search
+- `GET /games/search?q=...` - Trigram full-text search
+- `GET /releases` - The release calendar (EU release-date rule — see `docs/adr/0002`)
 - `GET /genres` - Genre reference data
 - `GET /platforms` - Platform reference data
-- `GET /health` - Service health check
+- Swagger UI at `/docs`
 
-**Features**:
-- Redis caching with configurable TTL
-- PostgreSQL trigram search
-- Async FastAPI for high performance
-- API documentation at `/docs`
+**Admin** (token-gated; `Authorization: Bearer $ADMIN_TOKEN`)
+- `GET /admin/stats/overview` - System statistics
+- `GET /admin/stats/database` - Database metrics
+- `GET /admin/cache/stats` - Cache status
+- `DELETE /admin/cache/clear` - Clear cache
+- `POST /admin/sync/games` - Trigger a full IGDB sync
+- `POST /admin/sync/games/{igdb_id}` - Sync one game
+- `GET /admin/data/games/recent` - Recently synced games
+- `GET /admin/data/games/problematic` - Games with issues
+- `POST /admin/maintenance/cleanup` - Cleanup task
 
-### Admin API Service (Port 8001)
-**Purpose**: Administrative interface and system management
+## Background Jobs (Celery)
 
-**Key Endpoints**:
-- `GET /stats/overview` - System statistics
-- `POST /sync/games` - Trigger data synchronization
-- `DELETE /cache/clear` - Cache management
-- `GET /stats/database` - Database metrics
+The worker app (`app.sync.celery_app`) schedules on a **single Redis URL**:
 
-**Features**:
-- Token-based authentication
-- System monitoring capabilities
-- Manual sync triggers
+| Schedule | Task | When |
+|----------|------|------|
+| Hourly delta sync | `data_sync.sync_games` (full_sync=False) | every hour at minute 0 |
+| Daily full sync | `data_sync.sync_games` (full_sync=True) | every day at 02:00 UTC |
+| Weekly cleanup | `data_sync.cleanup_old_data` | Sunday at 03:00 UTC |
 
-### Data Sync Service (Celery)
-**Purpose**: Background data synchronization with IGDB API
-
-**Features**:
-- Scheduled daily full sync (2 AM)
-- Hourly delta sync for updates
-- Weekly data cleanup
-- IGDB API integration with retry logic
-
-**Queues**:
-- `data_sync` - Regular synchronization
-- `priority` - High-priority tasks
-- `maintenance` - Cleanup operations
+The EU release-date rule (`app/sync/igdb_client.py`, ADR-0002) selects the canonical date:
+IGDB region Europe → Worldwide → TBA, label-aware rather than blind-earliest.
 
 ## Environment Configuration
 
 ### Required Environment Variables
 ```bash
 # Database
-DATABASE_URL=postgresql://gameuser:gamepassword@localhost:5432/videogame_calendar
+DATABASE_URL=postgresql://gameuser:***@postgres:5432/gamecalendar
 
-# Redis
-REDIS_URL=redis://localhost:6379
+# Redis (cache AND Celery broker/backend — a single URL)
+REDIS_URL=redis://redis:6379/0
 
 # IGDB API (Required for data sync)
 IGDB_CLIENT_ID=your_igdb_client_id
@@ -174,196 +159,113 @@ IGDB_CLIENT_SECRET=your_igdb_client_secret
 
 # Admin Authentication
 ADMIN_TOKEN=your_secure_admin_token
-
-# CORS (for production)
-CORS_ORIGINS=https://yourdomain.com
 ```
 
 ## Verification & Testing
 
-### Service Health Checks
 ```bash
-# Check all services
-curl http://localhost:8000/health  # Game API
-curl http://localhost:8001/health  # Admin API
+# Health
+curl http://localhost:8000/health
 
-# Test endpoints
+# Public endpoints
 curl http://localhost:8000/games?limit=5
+curl http://localhost:8000/releases
 curl http://localhost:8000/genres
 ```
 
-### Access Points
-- **Frontend**: http://localhost:3000
-- **Game API Docs**: http://localhost:8000/docs
-- **Admin API Docs**: http://localhost:8001/docs
-- **Celery Monitor**: `celery -A worker flower` (http://localhost:5555)
-
-## SSL Support (Legacy)
-
-For environments requiring SSL (e.g., ZScaler):
-
-### Windows
-```powershell
-# Run with SSL support
-.\run_backend.ps1
-
-# Run without SSL
-.\run_backend.ps1 -NoSSL
-```
-
-### Linux/Mac
+### Tests
+The EU release-date rule is unit-verified via a standalone self-check (no pytest needed):
 ```bash
-chmod +x run_backend_ssl.sh
-./run_backend_ssl.sh
+python tests/test_release_date_rule.py
 ```
 
-The SSL implementation automatically detects ZScaler Root.pem certificates and configures appropriate SSL settings.
+### Quality checks (matches CI scope)
+```bash
+ruff check app tests
+mypy app
+bandit -r app
+```
 
 ## Database Features
 
 ### PostgreSQL Optimizations
-- **JSONB fields** for flexible metadata storage
-- **GIN indexes** for JSON and text search
-- **Trigram indexes** for fuzzy text search
-- **Connection pooling** for performance
-- **Foreign key relationships** for data integrity
+- GIN **trigram indexes** (`pg_trgm`) for fuzzy text search
+- Foreign key relationships for data integrity
+- Alembic migrations create `pg_trgm` / `uuid-ossp` idempotently (works on any Postgres)
 
-### Main Tables
-- `games` - Core game information with JSONB metadata
-- `genres` - Game genres with text indexing
-- `platforms` - Gaming platforms
-- `companies` - Game developers/publishers
-- `franchises` - Game series
+### Main Tables (SQLAlchemy models in `app/models/`)
+- `games`, `genres`, `platforms`, `companies`, `franchises`, `languages`, `regions`
+  (+ association tables)
 
 ## Performance & Caching
 
-### Caching Strategy
-- **Game Lists**: 5-minute cache
-- **Individual Games**: 10-minute cache
-- **Reference Data**: 30-minute cache
-- **Search Results**: 10-minute cache
-
-### Database Performance
-- Connection pooling (10-20 connections)
-- Proper indexing for common queries
-- JSONB for flexible metadata
-- Regular VACUUM and ANALYZE
+| Endpoint | Cache TTL |
+|----------|-----------|
+| `/games` (list) | 300s (5 min) |
+| `/releases` | 300s (5 min) |
+| `/games/{id}` | 600s (10 min) |
+| `/games/search` | 600s (10 min) |
+| `/genres`, `/platforms` | 1800s (30 min) |
 
 ## Monitoring & Maintenance
 
-### Useful Commands
 ```bash
 # Docker operations
-docker-compose ps                    # View all services
-docker-compose logs -f game-api      # View service logs
-docker-compose restart redis        # Restart specific service
-docker-compose down -v              # Clean shutdown with volumes
+docker compose ps
+docker compose logs -f app
+docker compose restart redis
+docker compose down -v
 
-# Database operations
-psql -h localhost -U gameuser -d videogame_calendar
+# Database
+psql -h localhost -U gameuser -d gamecalendar
 redis-cli ping
 
-# Celery monitoring
-celery -A worker inspect ping       # Check workers
-celery -A worker flower             # Web monitoring interface
+# Celery
+celery -A app.sync.celery_app inspect ping    # check workers
 ```
 
-### Backup Strategy
-```bash
-# Database backup
-pg_dump -h localhost -U gameuser -d videogame_calendar > backup_$(date +%Y%m%d).sql
+## Deployment
 
-# Redis backup (automatic to dump.rdb)
-cp /var/lib/redis/dump.rdb /backup/redis_$(date +%Y%m%d).rdb
-```
+Per ADR-0003, deployment targets a **single VPS with Docker Compose** (not Azure Container
+Apps). The compose file runs one app image in five roles (migrate / app / worker / beat) plus
+postgres, redis, and frontend; `migrate` runs `alembic upgrade head` before the API starts.
 
 ## Troubleshooting
 
-### Common Issues
-
-**Database Connection Errors**:
+**Database Connection Errors:**
 ```bash
-# Check PostgreSQL
-docker-compose logs postgres
-psql -h localhost -U gameuser -d videogame_calendar
+docker compose logs postgres
+psql -h localhost -U gameuser -d gamecalendar
 ```
 
-**Redis Connection Issues**:
+**Redis Connection Issues:**
 ```bash
-docker-compose ps redis
+docker compose ps redis
 redis-cli ping
 ```
 
-**Port Conflicts**:
+**Empty database / no tables:**
 ```bash
-# Check what's using ports
-netstat -tlnp | grep :8000
-netstat -tlnp | grep :5432
+alembic upgrade head
 ```
 
-**Service Startup Problems**:
+**Port Conflicts:**
 ```bash
-# Check service logs
-docker-compose logs game-api
-docker-compose logs admin-api
-docker-compose logs data-sync-worker
+netstat -tlnp | grep -E ':8000|:5432'
 ```
-
-## Migration from Legacy
-
-### Data Migration Options
-
-**Option 1: Fresh Start (Recommended)**
-1. Follow Quick Start guide
-2. Use Admin API to trigger initial IGDB sync
-3. Start with clean, optimized database
-
-**Option 2: Migrate Existing Data**
-1. Run SQLite migration script:
-   ```bash
-   python scripts/migrate_sqlite_to_postgresql.py backend/gamecalendar.db
-   ```
-2. Verify data integrity
-3. Gradually transition to new services
-
-### Rollback Plan
-If issues occur during migration:
-1. Route traffic back to legacy Flask app
-2. Restore from SQLite backup if needed
-3. Stop microservices and restart Flask app
-4. Analyze logs and fix issues before retry
-
-## Security
-
-### Authentication & Authorization
-- Admin API requires token authentication
-- Environment-based security configuration
-- CORS properly configured for production
-
-### Data Security
-- PostgreSQL with proper user permissions
-- Redis AUTH for cache security
-- Sensitive data in environment variables only
-
-### Network Security
-- Internal service communication
-- SSL/TLS for external traffic
-- Proper firewall configuration
 
 ## Contributing
 
-### Development Workflow
-1. Fork repository
-2. Create feature branch
-3. Implement changes with tests
-4. Update documentation
-5. Submit pull request
+1. Create a feature branch
+2. Implement changes with tests
+3. Run quality checks (`ruff`, `mypy`, `bandit` on `app tests`)
+4. Open a pull request
 
 ### Code Standards
-- **Python**: Black formatting, type hints
+- **Python**: ruff (lint + format), type hints, mypy
 - **TypeScript**: ESLint, Prettier
-- **API**: OpenAPI documentation
-- **Tests**: Unit and integration tests
+- **API**: OpenAPI documentation (`/docs`)
+- **Tests**: ADR-0002 unit tests in `tests/`
 
 ## Support
 
@@ -375,4 +277,7 @@ For issues, questions, or contributions:
 
 ---
 
-This documentation covers the complete Video Game Calendar application with its modern microservices architecture, providing a scalable and maintainable foundation for future development.
+This documentation covers the Video Game Calendar application with its consolidated
+single-app architecture, providing a scalable and maintainable foundation for development.
+Architecture decisions are recorded in `docs/adr/` (ADR-0001 consolidation, ADR-0002 EU
+release-date rule, ADR-0003 VPS deployment).

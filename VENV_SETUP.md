@@ -10,7 +10,9 @@ Virtual environments create **isolated Python installations** for each project. 
 - ✅ **Easy cleanup** - just delete the `.venv` folder
 - ✅ **Team consistency** - everyone uses same package versions
 
----
+> **Project layout note:** the backend is **one consolidated app package** (`app/`), so the
+> project needs **one root `.venv`**, not separate per-service environments. The old
+> `services/{game-api,admin-api,data-sync}/.venv` layout no longer exists.
 
 ## Quick Setup (Automated)
 
@@ -28,25 +30,22 @@ py -3.12 --version
 # Should show: Python 3.12.x
 ```
 
-### Step 2: Run the Setup Script
+### Step 2: Create the venv and install the app
 
 ```powershell
 # Navigate to project root
 cd C:\Users\jonathan.peil\Downloads\ProgProjects\videogamecalendar
 
-# Run the automated setup script
-.\setup-venv.ps1
-```
+# Create a root virtual environment
+py -3.12 -m venv .venv
 
-This script will:
-1. ✅ Check for Python 3.12
-2. ✅ Create `.venv` folder in each service
-3. ✅ Remove `pip-system-certs` (ZScaler issue)
-4. ✅ Install all dependencies from `requirements.txt`
-5. ✅ Set up isolated environments for:
-   - `services/game-api/.venv`
-   - `services/admin-api/.venv`
-   - `services/data-sync/.venv`
+# Activate it (PowerShell)
+.\.venv\Scripts\Activate.ps1
+
+# Install the app package + dev deps (ruff, mypy, bandit, ...) from pyproject.toml
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
 
 ### Step 3: Restart VS Code
 
@@ -55,75 +54,34 @@ File → Close Folder
 File → Open Folder → Select videogamecalendar folder
 ```
 
-VS Code will automatically detect the virtual environments!
+VS Code will automatically detect the root `.venv`.
 
-### Step 4: Start Debugging
-
-```
-Press F5 → Select "🎮 Debug Game API"
-```
-
-VS Code will now use the virtual environment automatically.
-
----
-
-## Manual Setup (If Script Fails)
-
-### Game API
+### Step 4: Start the backend
 
 ```powershell
-cd services\game-api
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip uninstall pip-system-certs -y
-python -m pip install -r requirements.txt
-deactivate
-```
-
-### Admin API
-
-```powershell
-cd services\admin-api
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip uninstall pip-system-certs -y
-python -m pip install -r requirements.txt
-deactivate
-```
-
-### Data Sync
-
-```powershell
-cd services\data-sync
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip uninstall pip-system-certs -y
-python -m pip install -r requirements.txt
-deactivate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## How VS Code Uses Virtual Environments
+## Manual Setup (If the automated path fails)
 
-### Debug Configurations
+```powershell
+cd C:\Users\jonathan.peil\Downloads\ProgProjects\videogamecalendar
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip uninstall pip-system-certs -y   # only if you hit the ZScaler error
+python -m pip install -e ".[dev]"
+```
 
-Each debug configuration in `.vscode/launch.json` will automatically use the corresponding virtual environment:
+---
 
-- **🎮 Debug Game API** → Uses `services/game-api/.venv`
-- **⚙️ Debug Admin API** → Uses `services/admin-api/.venv`
-- **🔄 Debug Data Sync Worker** → Uses `services/data-sync/.venv`
+## How VS Code Uses the Virtual Environment
 
-### Tasks
-
-VS Code tasks will also use the virtual environments automatically.
-
-### Terminal
-
-When you open a terminal in VS Code, it should auto-activate the virtual environment for the folder you're in.
+- `.vscode/launch.json` and the VS Code tasks reference the **root `.venv`** (backend runs
+  `uvicorn app.main:app`, worker `celery -A app.sync.celery_app`).
+- When you open a terminal in VS Code, it auto-activates the root `.venv`.
 
 ---
 
@@ -134,7 +92,7 @@ When you open a terminal in VS Code, it should auto-activate the virtual environ
 When you open a terminal in VS Code, you should see:
 
 ```powershell
-(.venv) PS C:\...\videogamecalendar\services\game-api>
+(.venv) PS C:\...\videogamecalendar>
 ```
 
 The `(.venv)` prefix means the virtual environment is active!
@@ -150,14 +108,14 @@ python --version
 
 ```powershell
 pip list
-# Should show: redis, fastapi, uvicorn, etc.
+# Should show: fastapi, uvicorn, celery, redis, sqlalchemy, ...
 ```
 
 ### Check Where Python Is
 
 ```powershell
 where.exe python
-# Should show: ...\services\game-api\.venv\Scripts\python.exe
+# Should show: ...\videogamecalendar\.venv\Scripts\python.exe
 ```
 
 ---
@@ -165,178 +123,102 @@ where.exe python
 ## Common Issues & Solutions
 
 ### Issue: "py -3.12 is not recognized"
-
 **Solution:** Python 3.12 is not installed.
-
 Download and install: https://www.python.org/downloads/release/python-31210/
 
 ### Issue: "Cannot be loaded because running scripts is disabled"
-
 **Solution:** PowerShell execution policy needs to be changed.
-
 ```powershell
 # Run PowerShell as Administrator
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 ### Issue: Still using Python 3.13
-
-**Solution:** VS Code hasn't picked up the new virtual environment.
-
+**Solution:** VS Code hasn't picked up the virtual environment.
 1. Restart VS Code
 2. Press `Ctrl+Shift+P`
 3. Select "Python: Select Interpreter"
 4. Choose the one ending in `.venv\Scripts\python.exe`
 
 ### Issue: ModuleNotFoundError after creating venv
-
 **Solution:** Dependencies weren't installed.
-
 ```powershell
-cd services\game-api
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ---
 
-## Managing Virtual Environments
+## Managing the Virtual Environment
 
-### Activate a Virtual Environment
-
+### Activate
 ```powershell
 # Windows PowerShell
-cd services\game-api
 .\.venv\Scripts\Activate.ps1
 
 # Windows CMD
-cd services\game-api
 .venv\Scripts\activate.bat
 ```
 
 ### Deactivate
-
 ```powershell
 deactivate
 ```
 
 ### Delete and Recreate
-
 ```powershell
 # Delete
-Remove-Item -Recurse -Force services\game-api\.venv
+Remove-Item -Recurse -Force .venv
 
 # Recreate
-cd services\game-api
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ### Update Dependencies
-
 ```powershell
-cd services\game-api
 .\.venv\Scripts\Activate.ps1
-pip install --upgrade -r requirements.txt
-```
-
-### Add New Package
-
-```powershell
-cd services\game-api
-.\.venv\Scripts\Activate.ps1
-
-# Install package
-pip install new-package-name
-
-# Update requirements.txt
-pip freeze > requirements.txt
+pip install --upgrade -e ".[dev]"
 ```
 
 ---
 
-## Project Structure with Virtual Environments
+## Project Structure with the Virtual Environment
 
 ```
 videogamecalendar/
-├── services/
-│   ├── game-api/
-│   │   ├── .venv/              # ← Virtual environment (isolated)
-│   │   │   ├── Scripts/
-│   │   │   │   └── python.exe  # ← Python 3.12 for this service
-│   │   │   └── Lib/
-│   │   │       └── site-packages/  # ← Packages for this service only
-│   │   ├── main.py
-│   │   └── requirements.txt
-│   │
-│   ├── admin-api/
-│   │   ├── .venv/              # ← Separate virtual environment
-│   │   │   └── ...
-│   │   └── requirements.txt
-│   │
-│   └── data-sync/
-│       ├── .venv/              # ← Another separate virtual environment
-│       │   └── ...
-│       └── requirements.txt
-│
-├── .python-version             # ← Specifies Python 3.12 for this project
-├── setup-venv.ps1              # ← Automated setup script
-└── .gitignore                  # ← .venv folders are ignored by git
+├── .venv/                    # ← The single root virtual environment
+│   ├── Scripts/
+│   │   └── python.exe        # ← Python 3.12 for the whole project
+│   └── Lib/
+│       └── site-packages/    # ← All backend packages live here
+├── app/                      # ← The consolidated backend package
+│   ├── main.py               #     FastAPI entry (public + admin)
+│   ├── api.py                #     public routes
+│   ├── admin.py              #     admin routes
+│   └── sync/                 #     IGDB sync + Celery
+├── frontend/                 # React/Vite app (Node deps, not in .venv)
+├── alembic/                  # Database migrations
+├── .python-version           # ← Specifies Python 3.12 for this project
+└── .gitignore                # ← .venv is ignored by git
 ```
 
 ---
 
 ## Benefits for This Project
 
-### Before (System-wide Python)
-
-```
-C:\Python313\
-├── python.exe
-└── Lib/site-packages/
-    ├── redis (version X)
-    ├── fastapi (version Y)
-    ├── uvicorn (version Z)
-    └── pip-system-certs (broken!)
-```
-
-**Problems:**
-- ❌ All projects share same packages
-- ❌ Can't use different Python versions
-- ❌ Broken packages affect everything
-- ❌ Hard to clean up
-
-### After (Virtual Environments)
-
-```
-services/game-api/.venv/
-├── Scripts/python.exe (Python 3.12)
-└── Lib/site-packages/
-    ├── redis (specific version for this project)
-    ├── fastapi (specific version)
-    └── NO pip-system-certs!
-
-services/admin-api/.venv/
-├── Scripts/python.exe (Python 3.12)
-└── Lib/site-packages/
-    └── ... (separate packages)
-```
-
-**Benefits:**
-- ✅ Each service has its own packages
-- ✅ Using Python 3.12 (not 3.13)
+One root venv gives you:
+- ✅ All backend code runs against the same packages (FastAPI + admin + Celery together)
+- ✅ Python 3.12 (not 3.13)
 - ✅ No pip-system-certs issue
 - ✅ Easy to delete and recreate
 
----
-
 ## Next Steps
 
-1. ✅ **Run the setup script:** `.\setup-venv.ps1`
-2. ✅ **Restart VS Code**
-3. ✅ **Press F5** to start debugging
-4. ✅ **Check the terminal** - should show `(.venv)`
-5. ✅ **Verify Python version** - should be 3.12.x
+1. ✅ **Create the venv:** `py -3.12 -m venv .venv`
+2. ✅ **Install the app:** `pip install -e ".[dev]"`
+3. ✅ **Restart VS Code**
+4. ✅ **Start the backend:** `uvicorn app.main:app --reload --port 8000`
 
 You're all set! 🚀
