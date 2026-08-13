@@ -10,6 +10,7 @@ Beats:
     daily   full game sync (2am)
     weekly  data cleanup   (Sunday 3am)
 """
+
 from __future__ import annotations
 
 import os

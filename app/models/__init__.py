@@ -2,6 +2,7 @@
 Shared database models for the Video Game Calendar microservices.
 These models are used across all services.
 """
+
 from .base import Base, TimestampedBase
 from .company import Company
 from .franchise import Franchise
@@ -20,5 +21,5 @@ __all__ = [
     "Language",
     "Platform",
     "Region",
-    "TimestampedBase"
+    "TimestampedBase",
 ]

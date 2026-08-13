@@ -7,6 +7,7 @@ from .base import Base, TimestampedBase
 
 class Platform(Base, TimestampedBase):
     """Gaming platforms based on IGDB API schema - PostgreSQL optimized"""
+
     __tablename__ = "platforms"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -25,7 +26,12 @@ class Platform(Base, TimestampedBase):
 
     # Table args for text search
     __table_args__ = (
-        Index("ix_platforms_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index(
+            "ix_platforms_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self):

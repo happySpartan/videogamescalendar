@@ -1,6 +1,7 @@
 """
 Configuration settings for Game API service
 """
+
 import os
 
 
@@ -9,8 +10,7 @@ class Settings:
 
     # Database settings
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://gameuser:gamepassword@localhost:5432/videogame_calendar"
+        "DATABASE_URL", "postgresql://gameuser:gamepassword@localhost:5432/videogame_calendar"
     )
     DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "10"))
     DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "20"))
@@ -35,6 +35,7 @@ class Settings:
     # Pagination settings
     DEFAULT_PAGE_SIZE: int = int(os.getenv("DEFAULT_PAGE_SIZE", "20"))
     MAX_PAGE_SIZE: int = int(os.getenv("MAX_PAGE_SIZE", "100"))
+
 
 # Global settings instance
 settings = Settings()

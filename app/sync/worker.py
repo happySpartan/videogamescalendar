@@ -6,10 +6,12 @@ Beats:
     daily   full game sync (2am)
     weekly  data cleanup   (Sunday 3am)
 """
+
 import asyncio
 import logging
 import os
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from sqlalchemy import delete, select
 
@@ -38,6 +40,7 @@ igdb_service = IGDBService(
 
 # --- reference data ---------------------------------------------------------
 
+
 async def _upsert_by_igdb_id(db, model, data: dict, fields: tuple) -> object:
     """Update-or-create a reference row keyed by IGDB id."""
     existing = db.query(model).filter_by(igdb_id=data["id"]).first()
@@ -55,7 +58,9 @@ async def _sync_reference_data(db):
         await _upsert_by_igdb_id(db, Genre, genre, ("name", "slug", "url"))
     for platform in await igdb_service.get_platforms():
         await _upsert_by_igdb_id(
-            db, Platform, platform,
+            db,
+            Platform,
+            platform,
             ("name", "abbreviation", "slug", "category", "generation", "summary", "url"),
         )
     for company in await igdb_service.get_companies():
@@ -66,6 +71,7 @@ async def _sync_reference_data(db):
 
 
 # --- games ------------------------------------------------------------------
+
 
 async def _process_game_data(db, game_data: dict) -> Game:
     game = db.query(Game).filter_by(igdb_id=game_data["id"]).first()
@@ -79,9 +85,7 @@ async def _process_game_data(db, game_data: dict) -> Game:
     game.storyline = game_data.get("storyline")
 
     ts = game_data.get("first_release_date")
-    game.first_release_date = (
-        datetime.fromtimestamp(ts, tz=UTC) if ts else None
-    )
+    game.first_release_date = datetime.fromtimestamp(ts, tz=UTC) if ts else None
 
     game.rating = game_data.get("rating")
     game.rating_count = game_data.get("rating_count")
@@ -106,7 +110,7 @@ async def _process_game_data(db, game_data: dict) -> Game:
     game.metadata_ = {"sync_timestamp": datetime.now(UTC).isoformat()}
 
     await _process_game_relationships(db, game, game_data)
-    return game
+    return cast(Game, game)
 
 
 async def _lookup_or_create(db, model, igdb_id: int, defaults: dict):
@@ -126,11 +130,15 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
     game.regions.clear()
 
     for g in game_data.get("genres") or []:
-        obj = await _lookup_or_create(db, Genre, g["id"], {"name": g.get("name"), "slug": g.get("slug")})
+        obj = await _lookup_or_create(
+            db, Genre, g["id"], {"name": g.get("name"), "slug": g.get("slug")}
+        )
         game.genres.append(obj)
     for p in game_data.get("platforms") or []:
         obj = await _lookup_or_create(
-            db, Platform, p["id"],
+            db,
+            Platform,
+            p["id"],
             {"name": p.get("name"), "abbreviation": p.get("abbreviation")},
         )
         game.platforms.append(obj)
@@ -138,27 +146,37 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
         comp = ic.get("company") or {}
         if comp.get("id"):
             obj = await _lookup_or_create(
-                db, Company, comp["id"],
+                db,
+                Company,
+                comp["id"],
                 {"name": comp.get("name"), "description": comp.get("description")},
             )
             game.companies.append(obj)
     for f in game_data.get("franchises") or []:
-        obj = await _lookup_or_create(db, Franchise, f["id"], {"name": f.get("name"), "slug": f.get("slug")})
+        obj = await _lookup_or_create(
+            db, Franchise, f["id"], {"name": f.get("name"), "slug": f.get("slug")}
+        )
         game.franchises.append(obj)
     for lang in game_data.get("languages") or []:
         obj = await _lookup_or_create(
-            db, Language, lang["id"],
+            db,
+            Language,
+            lang["id"],
             {"name": lang.get("name"), "native_name": lang.get("native_name")},
         )
         game.languages.append(obj)
     for r in game_data.get("regions") or []:
         obj = await _lookup_or_create(
-            db, Region, r["id"], {"identifier": r.get("identifier"), "name": r.get("name") or r.get("identifier")}
+            db,
+            Region,
+            r["id"],
+            {"identifier": r.get("identifier"), "name": r.get("name") or r.get("identifier")},
         )
         game.regions.append(obj)
 
 
 # --- tasks ------------------------------------------------------------------
+
 
 @celery_app.task(bind=True, name="data_sync.sync_games")
 def sync_games(self, full_sync: bool = False):
@@ -166,8 +184,7 @@ def sync_games(self, full_sync: bool = False):
     logger.info("Starting game sync (full_sync=%s)", full_sync)
     updated_after = None if full_sync else datetime.now(UTC).timestamp() - 3600
     try:
-        return {"result": asyncio.run(_sync_games_async(updated_after)),
-                "full_sync": full_sync}
+        return {"result": asyncio.run(_sync_games_async(updated_after)), "full_sync": full_sync}
     except Exception as exc:
         logger.exception("Game sync failed")
         raise self.retry(countdown=300, max_retries=3) from exc
@@ -239,9 +256,11 @@ def cleanup_old_data():
         with sync_session_factory() as db:
             removed_games = 0
             # Games that still have no real release date after a grace period.
-            stale = db.query(Game).filter(
-                Game.first_release_date.is_(None), Game.downloaded_at < cutoff
-            ).all()
+            stale = (
+                db.query(Game)
+                .filter(Game.first_release_date.is_(None), Game.downloaded_at < cutoff)
+                .all()
+            )
             for game in stale:
                 db.delete(game)
                 removed_games += 1
@@ -249,11 +268,15 @@ def cleanup_old_data():
             # Orphaned association rows whose parent game no longer exists.
             live_game_ids = select(Game.id)
             removed_rows = 0
-            for table in (game_genres, game_platforms, game_companies,
-                          game_franchises, game_languages, game_regions):
-                result = db.execute(
-                    delete(table).where(table.c.game_id.not_in(live_game_ids))
-                )
+            for table in (
+                game_genres,
+                game_platforms,
+                game_companies,
+                game_franchises,
+                game_languages,
+                game_regions,
+            ):
+                result = db.execute(delete(table).where(table.c.game_id.not_in(live_game_ids)))
                 removed_rows += result.rowcount or 0
 
             db.commit()
@@ -272,12 +295,18 @@ def health_check():
     try:
         with sync_session_factory() as db:
             game_count = db.query(Game).count()
-        return {"status": "healthy", "game_count": game_count,
-                "timestamp": datetime.now(UTC).isoformat()}
+        return {
+            "status": "healthy",
+            "game_count": game_count,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as exc:
         logger.exception("Health check failed")
-        return {"status": "unhealthy", "error": str(exc),
-                "timestamp": datetime.now(UTC).isoformat()}
+        return {
+            "status": "unhealthy",
+            "error": str(exc),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
 
 
 if __name__ == "__main__":

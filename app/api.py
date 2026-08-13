@@ -5,6 +5,7 @@ the month/week window, ``/games`` + ``/games/{id}`` for detail, ``/genres`` and
 ``/platforms`` for filter reference data. Routes are registered as an
 ``APIRouter`` included by ``app.main``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +13,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -48,7 +49,7 @@ async def get_games(
             selectinload(Game.companies),
         )
 
-        filters = []
+        filters: list[ColumnElement[bool]] = []
         if search:
             filters.append(Game.name.ilike(f"%{search}%"))
         if genre_id:
@@ -70,7 +71,7 @@ async def get_games(
         count_query = select(func.count(Game.id))
         if filters:
             count_query = count_query.where(and_(*filters))
-        total_count = (await db.execute(count_query)).scalar()
+        total_count = (await db.execute(count_query)).scalar() or 0
 
         games_data = []
         for game in games:
@@ -159,16 +160,12 @@ async def get_game_by_id(
             "metadata": game.metadata_,
             "genres": [{"id": g.id, "name": g.name, "slug": g.slug} for g in game.genres],
             "platforms": [
-                {"id": p.id, "name": p.name, "abbreviation": p.abbreviation}
-                for p in game.platforms
+                {"id": p.id, "name": p.name, "abbreviation": p.abbreviation} for p in game.platforms
             ],
             "companies": [
-                {"id": c.id, "name": c.name, "description": c.description}
-                for c in game.companies
+                {"id": c.id, "name": c.name, "description": c.description} for c in game.companies
             ],
-            "franchises": [
-                {"id": f.id, "name": f.name, "slug": f.slug} for f in game.franchises
-            ],
+            "franchises": [{"id": f.id, "name": f.name, "slug": f.slug} for f in game.franchises],
             "languages": [
                 {"id": lang.id, "name": lang.name, "native_name": lang.native_name}
                 for lang in game.languages
@@ -272,7 +269,7 @@ async def get_releases(
             selectinload(Game.companies),
         )
 
-        filters = []
+        filters: list[ColumnElement[bool]] = []
         if status == "released":
             filters.append(Game.first_release_date.isnot(None))
             filters.append(Game.first_release_date <= now)
@@ -367,11 +364,7 @@ async def get_platforms(db: AsyncSession = Depends(get_db)):
     cache_key = "platforms:all"
 
     async def fetch_platforms():
-        platforms = (
-            (await db.execute(select(Platform).order_by(Platform.name)))
-            .scalars()
-            .all()
-        )
+        platforms = (await db.execute(select(Platform).order_by(Platform.name))).scalars().all()
         return [
             {
                 "id": platform.id,

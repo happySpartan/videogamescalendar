@@ -5,6 +5,7 @@ triggering. Mounted under ``/admin`` by ``app.main`` and guarded by
 ``deps.verify_admin_token``. Sync tasks are enqueued through the shared
 ``app.sync.celery_app`` so they land on the same broker the worker consumes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -223,10 +224,10 @@ async def get_problematic_games(
     issues = []
 
     no_name_games = (
-        await db.execute(
-            select(Game).where((Game.name == "") | (Game.name.is_(None))).limit(10)
-        )
-    ).scalars().all()
+        (await db.execute(select(Game).where((Game.name == "") | (Game.name.is_(None))).limit(10)))
+        .scalars()
+        .all()
+    )
     if no_name_games:
         issues.append(
             {
@@ -237,16 +238,17 @@ async def get_problematic_games(
         )
 
     no_date_games = (
-        await db.execute(select(Game).where(Game.first_release_date.is_(None)).limit(10))
-    ).scalars().all()
+        (await db.execute(select(Game).where(Game.first_release_date.is_(None)).limit(10)))
+        .scalars()
+        .all()
+    )
     if no_date_games:
         issues.append(
             {
                 "type": "missing_release_date",
                 "count": len(no_date_games),
                 "games": [
-                    {"id": g.id, "igdb_id": g.igdb_id, "name": g.name}
-                    for g in no_date_games
+                    {"id": g.id, "igdb_id": g.igdb_id, "name": g.name} for g in no_date_games
                 ],
             }
         )
@@ -266,8 +268,7 @@ async def get_problematic_games(
                 "type": "missing_relations",
                 "count": len(no_relations_games),
                 "games": [
-                    {"id": g.id, "igdb_id": g.igdb_id, "name": g.name}
-                    for g in no_relations_games
+                    {"id": g.id, "igdb_id": g.igdb_id, "name": g.name} for g in no_relations_games
                 ],
             }
         )

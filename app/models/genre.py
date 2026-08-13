@@ -7,6 +7,7 @@ from .base import Base, TimestampedBase
 
 class Genre(Base, TimestampedBase):
     """Game genres based on IGDB API schema - PostgreSQL optimized"""
+
     __tablename__ = "genres"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -21,7 +22,12 @@ class Genre(Base, TimestampedBase):
 
     # Table args for text search
     __table_args__ = (
-        Index("ix_genres_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index(
+            "ix_genres_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self):

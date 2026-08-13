@@ -20,6 +20,7 @@ class Game(Base, TimestampedBase):
     many-to-many relationships to genres, platforms, companies, franchises,
     languages and regions.
     """
+
     __tablename__ = "games"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

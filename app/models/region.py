@@ -7,6 +7,7 @@ from .base import Base, TimestampedBase
 
 class Region(Base, TimestampedBase):
     """Game regions based on IGDB API schema - PostgreSQL optimized"""
+
     __tablename__ = "regions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -21,7 +22,12 @@ class Region(Base, TimestampedBase):
 
     # Table args for text search
     __table_args__ = (
-        Index("ix_regions_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index(
+            "ix_regions_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self):

@@ -3,6 +3,7 @@
 PostgreSQL-optimized connection and session management. Kept synchronous entry
 points for the Celery worker and asynchronous ones for the FastAPI layer.
 """
+
 import logging
 import os
 from collections.abc import Generator
@@ -18,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://gameuser:***@localhost:5432/gamecalendar")
-ASYNC_DATABASE_URL = os.getenv("ASYNC_DATABASE_URL", DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
+ASYNC_DATABASE_URL = os.getenv(
+    "ASYNC_DATABASE_URL", DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+)
 
 # Sync engine (Celery worker / migrations / health checks)
 engine = create_engine(
@@ -110,6 +113,14 @@ class DatabaseManager:
     @staticmethod
     def health_check() -> dict:
         try:
+            # engine.pool is typed as the base Pool; size()/checkedout() only
+            # exist on QueuePool (which create_engine uses with poolclass above).
+            if isinstance(engine.pool, QueuePool):
+                pool_size: int | None = engine.pool.size()
+                checked_out: int | None = engine.pool.checkedout()
+            else:
+                pool_size = None
+                checked_out = None
             with engine.connect() as conn:
                 result = conn.execute(text("SELECT version()"))
                 version = result.scalar()
@@ -117,8 +128,8 @@ class DatabaseManager:
                     "status": "healthy",
                     "database": "postgresql",
                     "version": version,
-                    "pool_size": engine.pool.size(),
-                    "checked_out": engine.pool.checkedout(),
+                    "pool_size": pool_size,
+                    "checked_out": checked_out,
                 }
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}

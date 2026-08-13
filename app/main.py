@@ -6,6 +6,7 @@ and the shared Redis client. Run with::
 
     uvicorn app.main:app --port 8000
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,7 +79,12 @@ app.include_router(admin_router)
 @app.get("/health")
 async def health_check():
     """Liveness probe: reports DB and Redis connectivity."""
-    health_status = {"status": "healthy", "service": "app", "database": "unknown", "redis": "unknown"}
+    health_status = {
+        "status": "healthy",
+        "service": "app",
+        "database": "unknown",
+        "redis": "unknown",
+    }
 
     if test_connection():
         health_status["database"] = "connected"

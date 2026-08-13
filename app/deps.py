@@ -4,11 +4,13 @@ A single process serves both the public game/release API and the token-gated
 admin API, so the DB session dependency, the Redis cache client and the admin
 auth dependency live here instead of being duplicated per router.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
+from collections.abc import AsyncIterator
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -33,7 +35,7 @@ def set_redis_client(client: aioredis.Redis | None) -> None:
     redis_client = client
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncIterator[AsyncSession]:
     """Yield an async DB session to a route handler."""
     async with async_session_factory() as session:
         yield session

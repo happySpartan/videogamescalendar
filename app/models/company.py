@@ -8,6 +8,7 @@ from .base import Base, TimestampedBase
 
 class Company(Base, TimestampedBase):
     """Video game companies based on IGDB API schema - PostgreSQL optimized"""
+
     __tablename__ = "companies"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -25,7 +26,12 @@ class Company(Base, TimestampedBase):
 
     # Table args for text search
     __table_args__ = (
-        Index("ix_companies_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index(
+            "ix_companies_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
         Index("ix_companies_websites_gin", "websites", postgresql_using="gin"),
     )
 

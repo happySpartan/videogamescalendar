@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -115,7 +115,7 @@ def select_release_date(release_dates: list[dict]) -> int | None:
         if not candidates:
             continue
         best = min(candidates, key=_release_sort_key)
-        return best["date"]
+        return int(best["date"])
 
     return None
 
@@ -166,7 +166,7 @@ class IGDBService:
         logger.info("IGDB OAuth token acquired (expires in %ss)", expires_in)
 
     # -- low-level ----------------------------------------------------------
-    async def _post(self, endpoint: str, query: str) -> Any:
+    async def _post(self, endpoint: str, query: str) -> list[dict[Any, Any]]:
         if not self.access_token:
             await self.authenticate()
         headers = {
@@ -177,7 +177,7 @@ class IGDBService:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(f"{self.api_url}/{endpoint}", headers=headers, content=query)
             resp.raise_for_status()
-            return resp.json()
+            return cast(list[dict[Any, Any]], resp.json())
 
     def _build_query(
         self,
@@ -237,7 +237,7 @@ class IGDBService:
 
         game_ids = [g["id"] for g in raw if g.get("id")]
         rd_by_game = await self.get_release_dates(game_ids) if game_ids else {}
-        return [self._normalize_game(g, rd_by_game.get(g.get("id"), [])) for g in raw]
+        return [self._normalize_game(g, rd_by_game.get(int(g.get("id") or 0), [])) for g in raw]
 
     async def get_game_by_id(self, igdb_id: int) -> dict | None:
         """Fetch a single game by IGDB id (None if not found / no release date)."""
