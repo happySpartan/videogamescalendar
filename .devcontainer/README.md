@@ -7,8 +7,8 @@ This project includes a complete VS Code Dev Container configuration for a consi
 If you're using GitHub Codespaces, the environment is automatically set up for you! Just:
 
 1. Open this repository in Codespaces
-2. Wait for the container to build and services to start
-3. Update your `.env` file with IGDB API credentials
+2. **Set the required secrets** (see below) — the post-create script will pick them up automatically
+3. Wait for the container to build and services to start
 4. Start developing!
 
 The setup automatically:
@@ -16,16 +16,33 @@ The setup automatically:
 - Installs all Python and npm dependencies
 - Starts PostgreSQL 17 and Redis 7 containers
 - Configures VS Code extensions
+- Installs the full stack toolchain (uv, GitHub CLI, Postgres/Redis clients, jq)
+
+### IGDB credentials via Codespace secrets (recommended)
+
+Instead of editing `.env` by hand, set these as **GitHub Codespace secrets** (repo-level:
+Settings → Secrets and variables → Codespaces, or user-level for use across repos). They are
+injected as environment variables at container start and written into `.env` by the
+post-create script automatically:
+
+- `IGDB_CLIENT_ID`
+- `IGDB_CLIENT_SECRET`
+- `ADMIN_TOKEN` (optional but recommended)
+
+If the secrets are present at build time, you'll see "✅ IGDB credentials populated from
+Codespace secrets." If not, `.env` keeps placeholders and you can edit it manually.
 
 ## What's Included
 
 ### Development Tools
 - **Python 3.14** with the app package + dev deps installed from `pyproject.toml`
+- **uv** — fast Python package/venv manager (preferred over raw pip here)
 - **Node.js 20** for the React/Vite frontend
-- **PostgreSQL Client** for database interactions
-- **Redis CLI** for cache management
+- **PostgreSQL Client** (`psql`, `pg_dump`) for database interactions
+- **Redis CLI** (`redis-cli`) for cache management
+- **jq** for parsing API/JSON output
 - **Docker-in-Docker** for container management
-- **GitHub CLI** for repository management
+- **GitHub CLI** (`gh`) for repository management, PRs, issues, and Dependabot alerts
 
 ### Services
 - **PostgreSQL 17** - Main database (port 5432)
@@ -117,7 +134,8 @@ python tests/test_release_date_rule.py
 
 ## Environment Variables
 
-Make sure to set these in your `.env` file:
+In Codespaces, set the credentials as **Codespace secrets** (preferred — the post-create
+script writes them into `.env` automatically). For local dev, set them in `.env`:
 
 ```env
 # Required for IGDB API integration

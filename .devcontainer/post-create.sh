@@ -5,11 +5,18 @@ set -e
 
 echo "🚀 Setting up Video Games Calendar development environment..."
 
+# Additional stack tooling (Postgres/Redis clients, jq) + uv package manager
+sudo apt-get update -qq
+sudo apt-get install -y -qq --no-install-recommends postgresql-client redis-tools jq > /dev/null
+if ! command -v uv &> /dev/null; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
 # Install Python dependencies (single consolidated app package)
 echo "📦 Installing Python dependencies..."
 pip install --upgrade pip
 pip install -e ".[dev]"
-pip install -r scripts/requirements.txt 2>/dev/null || true
 
 # Install Python dev tools
 echo "🔧 Installing Python development tools..."
