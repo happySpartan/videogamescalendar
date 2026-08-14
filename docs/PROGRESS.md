@@ -99,12 +99,12 @@ sync (`POST /admin/sync/games` with `{"full_sync": true}`) and confirm rows popu
 These are the only not-done items from `.hermes/plans/2026-08-11_videogame-calendar-architecture.md`
 (the rest of the plan is complete; the file was deleted). Tracked here so the work is not lost.
 
-### 6. Commit + push the pending Dependabot config
+### 6. ~~Commit + push the pending Dependabot config~~ — DONE
 
-`.github/dependabot.yml` is still an uncommitted working-tree edit (a comment fix removing the
-stale `requirements-migrations.txt` reference). It also pins Dependabot to the three **current**
-manifests (pip @ `/`, npm @ `/frontend`, github-actions @ `/`) so it stops auto-generating runs
-against the deleted `services/*` dirs. Commit + push to take effect.
+`.github/dependabot.yml` is committed — the comment fix removing the stale
+`requirements-migrations.txt` reference, pinned to the three **current** manifests (pip @ `/`,
+npm @ `/frontend`, github-actions @ `/`), so it no longer auto-generates runs against the
+deleted `services/*` dirs. (Still needs a `git push` to reach GitHub.)
 
 ### 7. ~~Decide on the Dependabot vulnerabilities~~ — DONE
 
@@ -130,23 +130,17 @@ calendar month view, filtering, and navigation.
 update), but the VPS itself has **not** been stood up. This is the main remaining epic (ties into
 item 3 above).
 
-## Investigate the 11 uncommitted "concurrent" working-tree edits
+## ~~Investigate the concurrent "uncommitted" working-tree edits~~ — DONE
 
-Not from the doc-cleanup sessions — these files were modified by some other process/edit and are
-still **unstaged and uncommitted**. Before committing them, review each diff to confirm intent and
-avoid another silent sweep like `bd467233`:
+All reviewed and committed as two coherent, deliberately-scoped commits:
 
-- `.devcontainer/Dockerfile`, `.devcontainer/devcontainer.json`,
-  `.devcontainer/post-create.sh`, `.devcontainer/post-create-codespaces.sh`,
-  `.devcontainer/README.md`
-- `.github/workflows/ci.yml`
-- `.github/dependabot.yml` (ties into item 6 above)
-- `Dockerfile`
-- `app/db.py`
-- `pyproject.toml`
-- `.python-version`
+- **d410e560** — the Python 3.14 bump: dep pins to cp314-compatible releases +
+  the `worker.py` `CursorResult` cast + `app/db.py` `Generator[Session]` modernization.
+- **2755f562** — Dependabot advisory fix: fastapi / python-multipart / python-dotenv bumps.
 
-Determine whether each change is (a) a deliberate local tweak to keep, (b) a leftover of an
-aborted edit to revert, or (c) something that should also land in the ADRs/README. Commit the
-intended ones as a separate, clearly-scoped commit (`git add <specific paths>`, then
-`git commit --no-gpg-sign`); never `git add -A`.
+The `.devcontainer/*` changes reviewed here turned out to be part of the same 3.14 work
+(devcontainer.json → `image: python:3.14-bookworm`, docker-in-docker feature, ruff/mypy/bandit
+in the post-create scripts, extension cleanup). The three deleted `.devcontainer` files —
+`Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml` — were orphaned once devcontainer.json
+used the base image directly (nothing references them). All staged with `git add <specific paths>`
+and committed; never `git add -A`.

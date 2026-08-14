@@ -23,7 +23,7 @@ fi
 
 # Install Python dev tools
 echo "🔧 Installing Python development tools..."
-pip install black flake8 pytest pytest-cov mypy isort --quiet
+pip install ruff mypy bandit --quiet
 
 # Install Node.js dependencies for frontend
 echo "📦 Installing frontend dependencies..."

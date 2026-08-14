@@ -12,7 +12,7 @@ If you're using GitHub Codespaces, the environment is automatically set up for y
 4. Start developing!
 
 The setup automatically:
-- Installs Python 3.12 and Node.js 20
+- Installs Python 3.14 and Node.js 20
 - Installs all Python and npm dependencies
 - Starts PostgreSQL 17 and Redis 7 containers
 - Configures VS Code extensions
@@ -20,7 +20,7 @@ The setup automatically:
 ## What's Included
 
 ### Development Tools
-- **Python 3.12** with the app package + dev deps installed from `pyproject.toml`
+- **Python 3.14** with the app package + dev deps installed from `pyproject.toml`
 - **Node.js 20** for the React/Vite frontend
 - **PostgreSQL Client** for database interactions
 - **Redis CLI** for cache management

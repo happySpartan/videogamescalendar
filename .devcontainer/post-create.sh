@@ -13,7 +13,7 @@ pip install -r scripts/requirements.txt 2>/dev/null || true
 
 # Install Python dev tools
 echo "🔧 Installing Python development tools..."
-pip install black flake8 pytest pytest-cov mypy isort
+pip install ruff mypy bandit
 
 # Install Node.js dependencies for frontend
 echo "📦 Installing frontend dependencies..."

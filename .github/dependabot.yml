@@ -9,7 +9,7 @@
 
 version: 2
 updates:
-  # Python app + migration tooling (root pyproject.toml / requirements-migrations.txt)
+  # Python app + migration tooling (root pyproject.toml)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
