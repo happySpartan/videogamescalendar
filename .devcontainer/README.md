@@ -20,17 +20,21 @@ The setup automatically:
 
 ### IGDB credentials via Codespace secrets (recommended)
 
-Instead of editing `.env` by hand, set these as **GitHub Codespace secrets** (repo-level:
-Settings → Secrets and variables → Codespaces, or user-level for use across repos). They are
-injected as environment variables at container start and written into `.env` by the
+Set these as **GitHub Codespace secrets** (repo-level: Settings → Secrets and
+variables → Codespaces, or user-level for use across repos). They are injected
+as environment variables at container start and written into `.env` by the
 post-create script automatically:
 
 - `IGDB_CLIENT_ID`
 - `IGDB_CLIENT_SECRET`
 - `ADMIN_TOKEN` (optional but recommended)
 
-If the secrets are present at build time, you'll see "✅ IGDB credentials populated from
-Codespace secrets." If not, `.env` keeps placeholders and you can edit it manually.
+> Requires a container **rebuild** after adding/updating a secret — Codespace
+> secrets are only injected into new container sessions, not running ones.
+
+If the secrets are present at build time, you'll see "✅ IGDB credentials
+populated from Codespace secrets." If not, `.env` keeps placeholders and you
+can edit it manually.
 
 ## What's Included
 

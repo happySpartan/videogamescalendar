@@ -79,6 +79,6 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "bash .devcontainer/post-create-codespaces.sh",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode"
 }

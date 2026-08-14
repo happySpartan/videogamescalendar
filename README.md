@@ -120,7 +120,10 @@ cd frontend && npm install && npm run dev
 
 The repo includes a `.devcontainer/` that is fully wired for GitHub
 Codespaces: the post-create script installs Python + Node deps, starts
-Postgres/Redis containers, and creates `.env` from `.env.example`. See
+Postgres/Redis containers, and creates `.env` from `.env.example`. IGDB
+credentials are read automatically from the `IGDB_CLIENT_ID` and
+`IGDB_CLIENT_SECRET` **Codespace secrets** (set them in Settings → Secrets →
+Codespaces) and written into `.env` on container start. See
 [`.devcontainer/README.md`](.devcontainer/README.md).
 
 ## Environment variables
