@@ -82,7 +82,7 @@ def init_db() -> None:
         raise
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     """Get a synchronous database session (FastAPI dependency)."""
     db = SessionLocal()
     try:

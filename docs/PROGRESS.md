@@ -36,6 +36,12 @@ runbook exists and CI is green, but the VPS has **not been stood up yet**.
   Docker-build job, and a runtime job that applies Alembic migrations to a real Postgres
   service container, boots the API, and smoke-tests `/releases`, `/genres`, `/platforms`.
   A live IGDB sync runs only when real credentials are present as repo secrets.
+- **Python 3.14** (`requires-python>=3.14`, `.python-version`, CI, Docker 3.14-slim): the
+  2023-pinned binary deps that had no cp314 wheels (asyncpg 0.29, psycopg2-binary 2.9.9,
+  pydantic 2.5) and the runtime-incompatible sqlalchemy 2.0.23 are bumped so a plain
+  `pip install -e ".[dev]"` works on 3.14. Verified on a real CPython 3.14.7: quiet wheel
+  install (+ import of all binary deps incl. greenlet/uvloop), ruff + mypy clean, and all 7
+  ADR-0002 release-date checks pass.
 
 ## Outstanding work
 

@@ -6,18 +6,18 @@ build-backend = "hatchling.build"
 name = "videogame-calendar"
 version = "1.0.0"
 description = "Video game release calendar — public API, admin API and Celery sync worker in one package."
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     # Web / API
     "fastapi==0.104.1",
     "uvicorn[standard]==0.24.0",
-    "pydantic==2.5.0",
+    "pydantic==2.12.0",
     "python-multipart==0.0.6",
     "python-json-logger==2.0.7",
     # DB
-    "sqlalchemy[asyncio]==2.0.23",
-    "asyncpg==0.29.0",
-    "psycopg2-binary==2.9.9",
+    "sqlalchemy[asyncio]==2.0.52",
+    "asyncpg==0.31.0",
+    "psycopg2-binary==2.9.12",
     "alembic==1.13.1",
     # Scheduling / broker
     "celery[redis]==5.3.4",
@@ -40,7 +40,7 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 fix = true
 exclude = [".git", ".mypy_cache", ".ruff_cache", ".venv", "__pycache__", "build", "dist", "node_modules"]
 
@@ -58,7 +58,7 @@ ignore = [
     # code; kept off to avoid churn while preserving the useful checks.
     "B008",     # Depends()/Body() in default args (standard FastAPI pattern)
     "ARG001",   # unused route/dep args consumed by dependencies only
-    "DTZ003",   # legacy datetime.utcnow() (works on py311 dev runtime)
+    "DTZ003",   # legacy datetime.utcnow() (works on py314 dev runtime)
     "EM101",    # string literal in exception
     "EM102",    # f-string in exception
     "PLR0917",  # too-many-positional-arguments
@@ -77,7 +77,7 @@ skip-magic-trailing-comma = false
 known-first-party = ["app"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

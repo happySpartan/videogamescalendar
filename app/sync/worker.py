@@ -13,7 +13,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 
 from app.db import sync_session_factory
 from app.models import Company, Franchise, Game, Genre, Language, Platform, Region
@@ -276,7 +276,10 @@ def cleanup_old_data():
                 game_languages,
                 game_regions,
             ):
-                result = db.execute(delete(table).where(table.c.game_id.not_in(live_game_ids)))
+                result = cast(
+                    CursorResult,
+                    db.execute(delete(table).where(table.c.game_id.not_in(live_game_ids))),
+                )
                 removed_rows += result.rowcount or 0
 
             db.commit()

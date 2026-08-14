@@ -7,7 +7,7 @@
 #   web:    uvicorn app.main:app --host 0.0.0.0 --port 8000
 #   worker: celery -A app.sync.celery_app worker --loglevel=info
 #   beat:   celery -A app.sync.celery_app beat --loglevel=info
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
