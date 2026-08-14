@@ -106,10 +106,16 @@ stale `requirements-migrations.txt` reference). It also pins Dependabot to the t
 manifests (pip @ `/`, npm @ `/frontend`, github-actions @ `/`) so it stops auto-generating runs
 against the deleted `services/*` dirs. Commit + push to take effect.
 
-### 7. Decide on the 36 Dependabot vulnerabilities (18 high)
+### 7. ~~Decide on the Dependabot vulnerabilities~~ — DONE
 
-GitHub reports 36 vulnerable dependencies (18 high) on the default branch. Needs a decision:
-auto-update (Dependabot PRs) vs a manual bump, and a plan for CI to gate on them.
+OSV audit of the **current** pins (post-3.14 bump) found 3 packages with actionable
+advisories — `fastapi==0.104.1` (CVE-2024-24762, high DoS), `python-multipart==0.0.6`
+(18 advisories, high DoS), and `python-dotenv==1.0.0` (CVE-2026-28684). All bumped:
+`fastapi==0.141.1`, `python-multipart==0.0.32`, `python-dotenv==1.2.2`. The app exposes no
+form/file/multipart routes, so the FastAPI/multipart class of issue was not exploitable here.
+Everything else at current pins is clean (asyncpg, psycopg2, pydantic, sqlalchemy, alembic,
+celery, redis, httpx, kombu, uvicorn, dev tools). Verified on real CPython 3.14.7: install,
+app boot (/health), ruff + mypy clean, all ADR-0002 checks pass.
 
 ### 8. Browser-test the frontend against a running API
 
