@@ -6,6 +6,8 @@ work. For how the finished system fits together, see [README](../README.md).
 
 > This file deliberately lives apart from the "how it is" docs. Facts move into
 > [README](../README.md) / [`CONTEXT.md`](../CONTEXT.md) / ADRs once they are done and stable.
+> The one-shot architecture plan (`.hermes/plans/2026-08-11_…md`) is **complete and retired**;
+> its leftover open items are folded into the Backlog section below.
 
 ## Current status
 
@@ -70,3 +72,33 @@ sync (`POST /admin/sync/games` with `{"full_sync": true}`) and confirm rows popu
 - Keep `/admin/*` off the public reverse proxy (or add auth in front of it).
 - Rotate/use the `ADMIN_TOKEN` from `.env`; never bake it into the frontend build.
 - Confirm `.env` files are gitignored (do not commit `IGDB_CLIENT_SECRET` / `ADMIN_TOKEN`).
+
+## Backlog carried over from the (retired) architecture plan
+
+These are the only not-done items from `.hermes/plans/2026-08-11_videogame-calendar-architecture.md`
+(the rest of the plan is complete; the file was deleted). Tracked here so the work is not lost.
+
+### 6. Commit + push the pending Dependabot config
+
+`.github/dependabot.yml` is still an uncommitted working-tree edit (a comment fix removing the
+stale `requirements-migrations.txt` reference). It also pins Dependabot to the three **current**
+manifests (pip @ `/`, npm @ `/frontend`, github-actions @ `/`) so it stops auto-generating runs
+against the deleted `services/*` dirs. Commit + push to take effect.
+
+### 7. Decide on the 36 Dependabot vulnerabilities (18 high)
+
+GitHub reports 36 vulnerable dependencies (18 high) on the default branch. Needs a decision:
+auto-update (Dependabot PRs) vs a manual bump, and a plan for CI to gate on them.
+
+### 8. Browser-test the frontend against a running API
+
+The offline runtime gap is covered by CI (`/releases`, `/genres`, `/platforms` smoke tests on a
+real Postgres/Redis), but no human/automated browser test of the calendar UI rendering + filters
++ deep-link `/game/:id` has ever run locally. Run `npm run dev` against the backend and verify the
+calendar month view, filtering, and navigation.
+
+### 9. Provision the actual VPS
+
+`docs/DEPLOY.md` is a complete runbook (Docker install → compose up → TLS → backups → rolling
+update), but the VPS itself has **not** been stood up. This is the main remaining epic (ties into
+item 3 above).
