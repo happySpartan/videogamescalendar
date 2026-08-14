@@ -102,3 +102,24 @@ calendar month view, filtering, and navigation.
 `docs/DEPLOY.md` is a complete runbook (Docker install → compose up → TLS → backups → rolling
 update), but the VPS itself has **not** been stood up. This is the main remaining epic (ties into
 item 3 above).
+
+## Investigate the 11 uncommitted "concurrent" working-tree edits
+
+Not from the doc-cleanup sessions — these files were modified by some other process/edit and are
+still **unstaged and uncommitted**. Before committing them, review each diff to confirm intent and
+avoid another silent sweep like `bd467233`:
+
+- `.devcontainer/Dockerfile`, `.devcontainer/devcontainer.json`,
+  `.devcontainer/post-create.sh`, `.devcontainer/post-create-codespaces.sh`,
+  `.devcontainer/README.md`
+- `.github/workflows/ci.yml`
+- `.github/dependabot.yml` (ties into item 6 above)
+- `Dockerfile`
+- `app/db.py`
+- `pyproject.toml`
+- `.python-version`
+
+Determine whether each change is (a) a deliberate local tweak to keep, (b) a leftover of an
+aborted edit to revert, or (c) something that should also land in the ADRs/README. Commit the
+intended ones as a separate, clearly-scoped commit (`git add <specific paths>`, then
+`git commit --no-gpg-sign`); never `git add -A`.
