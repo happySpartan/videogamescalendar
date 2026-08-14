@@ -34,12 +34,14 @@ npm run dev
 
 ```
 src/
-├── components/    # UI components
-├── hooks/        # Custom React hooks
-├── services/     # API service layer
+├── api/          # Typed API client (client.ts, types.ts)
+├── components/   # UI components
+├── hooks/        # Custom React hooks (useReleaseCalendar, queries, ...)
+├── pages/        # Route-level pages
+├── styles/       # CSS / styling
+├── theme/        # Mantine theme config
 ├── types/        # TypeScript definitions
-├── utils/        # Helper functions
-└── theme/        # Mantine theme config
+└── utils/        # Helper functions
 ```
 
 ## Configuration
