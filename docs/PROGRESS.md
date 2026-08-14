@@ -39,12 +39,14 @@ runbook exists and CI is green, but the VPS has **not been stood up yet**.
 
 ## Outstanding work
 
-### 1. Restrict CORS (before exposing the API)
+### 1. ~~Restrict CORS (before exposing the API)~~ — DONE
 
-`app/main.py:69` currently sets `allow_origins=["*"]` (marked `TODO`). Before the API goes
-publicly reachable, restrict it to the real frontend origin(s), e.g.
-`allow_origins=["https://calendar.example.com"]`. `CORS_ORIGINS` is already configurable via
-env (`app/config.py`).
+`CORS_ORIGINS` is now wired end-to-end (default `*`, unchanged for local dev):
+- `app/main.py` reads `settings.CORS_ORIGINS` (replaces the hardcoded `["*"]` / `TODO`).
+- `docker-compose.yml` forwards `${CORS_ORIGINS:-*}` to the app service.
+- `.env.example` documents the var; `docs/DEPLOY.md` §6.2 updated to say "set `CORS_ORIGINS` to
+  the real frontend origin before exposing the API publicly", e.g.
+  `CORS_ORIGINS=https://calendar.example.com` (comma-separated for multiple).
 
 ### 2. Set the real frontend → API URL before VPS build
 

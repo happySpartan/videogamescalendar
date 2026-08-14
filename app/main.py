@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import deps
 from .admin import router as admin_router
 from .api import router as api_router
+from .config import settings
 from .db import test_connection
 
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +67,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: restrict to the deployed frontend origin
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

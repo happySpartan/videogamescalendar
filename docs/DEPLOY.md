@@ -116,9 +116,11 @@ The API listens on `:8000` and the frontend on `:80`. For a real deployment:
    into the frontend build. On the VPS the browser, not the server, calls the API — set this to
    the real public API URL (e.g. `https://api.calendar.example.com`) in the `frontend` service
    environment *before* building. Update `docker-compose.yml` (or override it) accordingly.
-2. **CORS.** `app/main.py` currently sets `allow_origins=["*"]` (marked TODO). Before exposing
-   the API publicly, restrict it to your real frontend origin(s), e.g.
-   `allow_origins=["https://calendar.example.com"]`.
+2. **CORS.** The API reads its allowed origins from the `CORS_ORIGINS` env var
+   (`app/main.py` → `app/config.py`), defaulting to `*`. Before exposing the API publicly, set
+   it in `.env` to your real frontend origin(s), e.g. `CORS_ORIGINS=https://calendar.example.com`
+   (comma-separated for multiple). `docker-compose.yml` forwards `${CORS_ORIGINS:-*}` to the app
+   service.
 3. **Admin token.** The `/admin/*` routes are gated by `ADMIN_TOKEN` (env). Do **not** expose
    `/admin` through the proxy unless you add auth in front; keep it on the private interface if
    possible.

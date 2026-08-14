@@ -132,6 +132,7 @@ Postgres/Redis containers, and creates `.env` from `.env.example`. See
 | `REDIS_URL` | Redis URL for cache **and** the Celery broker/backend (single URL) |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB API credentials for sync (get from https://api-docs.igdb.com) |
 | `ADMIN_TOKEN` | Bearer token gating the `/admin/*` routes (`openssl rand -hex 32`) |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins (default `*`; set to your real origin in prod) |
 
 `NODE_ENV`/`PYTHON_ENV` are development conveniences.
 
