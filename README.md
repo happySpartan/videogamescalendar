@@ -58,7 +58,6 @@ videogamecalendar/
 │   └── sync/               # IGDB sync logic, Celery app + worker
 ├── alembic/                # Database migrations
 ├── frontend/               # React application (port 3000)
-├── infrastructure/         # init.sql (Postgres extensions on first boot)
 ├── tests/                  # Backend tests (ADR-0002 release-date rule)
 ├── docs/                   # ADRs + deploy runbook
 ├── Dockerfile              # One image for web/worker/beat/migrate
@@ -202,8 +201,7 @@ repository secrets.
 ### Database features
 
 - `pg_trgm` GIN indexes for fuzzy text search; `uuid-ossp` for UUIDs. Both are
-  created idempotently by the Alembic migrations and by `infrastructure/init.sql`
-  on a fresh Postgres volume.
+  created idempotently by the Alembic migrations (`alembic/versions/`).
 - Main tables (SQLAlchemy models in `app/models/`): `games`, `genres`,
   `platforms`, `companies`, `franchises`, `languages`, `regions` (+ associations).
 
