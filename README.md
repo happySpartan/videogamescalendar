@@ -133,6 +133,7 @@ Postgres/Redis containers, and creates `.env` from `.env.example`. See
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB API credentials for sync (get from https://api-docs.igdb.com) |
 | `ADMIN_TOKEN` | Bearer token gating the `/admin/*` routes (`openssl rand -hex 32`) |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins (default `*`; set to your real origin in prod) |
+| `VITE_GAME_API_URL` | Public API URL the browser calls (frontend **build arg**; default `http://localhost:8000`) |
 
 `NODE_ENV`/`PYTHON_ENV` are development conveniences.
 

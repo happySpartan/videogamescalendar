@@ -8,9 +8,11 @@ import type {
   ReleasesResponse,
 } from './types';
 
+// Primary URL is VITE_GAME_API_URL (the documented, compose-wired build arg).
+// VITE_API_URL is kept as a backward-compat alias for older setups.
 const BASE_URL =
-  import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_GAME_API_URL ||
+  import.meta.env.VITE_API_URL ||
   'http://localhost:8000';
 
 export class ApiError extends Error {

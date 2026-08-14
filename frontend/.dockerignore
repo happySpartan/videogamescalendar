@@ -1,0 +1,10 @@
+# Never copy local .env files into the build context — they'd be baked into the
+# JS bundle (Vite reads import.meta.env at build time), shadowing the
+# VITE_GAME_API_URL build arg. Keep only the example checked in.
+node_modules
+dist
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.DS_Store

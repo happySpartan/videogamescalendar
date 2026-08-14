@@ -109,9 +109,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # The public API URL the browser calls (baked into the JS bundle at build
+        # time). Defaults to localhost:8000; set to the real API URL for deploy,
+        # e.g. VITE_GAME_API_URL=https://api.calendar.example.com.
+        VITE_GAME_API_URL: ${VITE_GAME_API_URL:-http://localhost:8000}
     container_name: videogame-calendar-frontend
-    environment:
-      - VITE_GAME_API_URL=http://localhost:8000
     ports:
       - "3000:80"
     depends_on:

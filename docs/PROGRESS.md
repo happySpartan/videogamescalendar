@@ -48,12 +48,25 @@ runbook exists and CI is green, but the VPS has **not been stood up yet**.
   the real frontend origin before exposing the API publicly", e.g.
   `CORS_ORIGINS=https://calendar.example.com` (comma-separated for multiple).
 
-### 2. Set the real frontend → API URL before VPS build
+### 2. ~~Set the real frontend → API URL before VPS build~~ — DONE
 
-`docker-compose.yml` bakes `VITE_GAME_API_URL=http://localhost:8000` into the frontend build.
-On the VPS the browser calls the API directly, so set this to the public API URL (e.g.
-`https://api.calendar.example.com`) in the `frontend` service env **before** building. See
-`docs/DEPLOY.md` §6.
+`VITE_GAME_API_URL` now actually reaches the Vite build. Root cause was twofold — both fixed:
+- **Stale local env shadowed it.** A leftover `frontend/.env` (`VITE_API_URL=http://localhost:5050`)
+  was copied into the image by `COPY . .` and `client.ts` read `VITE_API_URL` **first**, so the
+  deployment URL never took effect (the bundle baked `:5050`). Removed the stale `.env` and added
+  `frontend/.dockerignore` excluding `.env*` (keep `.env.example` only) so local env files can't
+  be baked into the bundle.
+- **Build arg now wired through.** `frontend/Dockerfile` declares `ARG VITE_GAME_API_URL`
+  (default `http://localhost:8000`) and sets it as `ENV` before `npm run build`;
+  `docker-compose.yml` passes it via `build.args` (`${VITE_GAME_API_URL:-http://localhost:8000}`),
+  replacing the ineffective runtime `environment:` block.
+- `client.ts` prioritizes `VITE_GAME_API_URL`, keeps `VITE_API_URL` as a backward-compat alias.
+- `.env.example` (root + frontend), README env table, and `docs/DEPLOY.md` §6.1 document setting
+  it to the real public API URL (`VITE_GAME_API_URL=https://api.calendar.example.com`) before
+  `docker compose up -d --build`.
+
+Verified: a build with the arg set bakes the URL (`api.TEST.example.com`) into the bundle and
+`:5050` is gone; a default build (no arg) falls back to `http://localhost:8000`.
 
 ### 3. Actually deploy to the VPS
 

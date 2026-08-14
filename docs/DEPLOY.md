@@ -112,10 +112,13 @@ The API listens on `:8000` and the frontend on `:80`. For a real deployment:
 
 ### Production-readiness gaps to close while you're here
 
-1. **Frontend → API URL.** `docker-compose.yml` bakes `VITE_GAME_API_URL=http://localhost:8000`
-   into the frontend build. On the VPS the browser, not the server, calls the API — set this to
-   the real public API URL (e.g. `https://api.calendar.example.com`) in the `frontend` service
-   environment *before* building. Update `docker-compose.yml` (or override it) accordingly.
+1. **Frontend → API URL.** The frontend image bakes `VITE_GAME_API_URL` into the JS bundle at
+   `npm run build` time. It is now a **build arg** (`frontend/Dockerfile`), wired through
+   `docker-compose.yml` as `VITE_GAME_API_URL: ${VITE_GAME_API_URL:-http://localhost:8000}`.
+   On the VPS the browser, not the server, calls the API — set `VITE_GAME_API_URL` in `.env` to
+   the real public API URL (e.g. `https://api.calendar.example.com`) **before** `docker compose
+   up -d --build`. Setting it at runtime (the old `environment:` block) had zero effect because
+   Vite reads it during the build.
 2. **CORS.** The API reads its allowed origins from the `CORS_ORIGINS` env var
    (`app/main.py` → `app/config.py`), defaulting to `*`. Before exposing the API publicly, set
    it in `.env` to your real frontend origin(s), e.g. `CORS_ORIGINS=https://calendar.example.com`

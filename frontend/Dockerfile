@@ -1,6 +1,12 @@
 # Build stage
 FROM node:18-alpine as build
 
+# The public API URL the browser talks to. Baked in at build time (Vite reads it
+# via process.env). Override when building the image so the deployed frontend
+# calls the real API, e.g. --build-arg VITE_GAME_API_URL=https://api.calendar.example.com
+ARG VITE_GAME_API_URL=http://localhost:8000
+ENV VITE_GAME_API_URL=$VITE_GAME_API_URL
+
 # Set working directory
 WORKDIR /app
 
