@@ -1,315 +1,221 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "🐋 Start Infrastructure",
-            "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose up postgres redis -d } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose up postgres redis -d } else { Write-Host 'Neither Docker nor Podman found. Please install one of them.' -ForegroundColor Red }"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": [],
-            "detail": "Start PostgreSQL & Redis (auto-detects Docker/Podman)"
-        },
-        {
-            "label": "🚀 Start Backend API",
-            "type": "shell",
-            "command": "uvicorn",
-            "args": ["app.main:app", "--reload", "--port", "8000", "--host", "0.0.0.0"],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "env": {
-                    "PYTHONPATH": "${workspaceFolder}"
-                }
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Start consolidated backend API (public + /admin) with hot reload",
-            "dependsOn": "🐋 Start Infrastructure"
-        },
-        {
-            "label": "🔄 Start Celery Worker",
-            "type": "shell",
-            "command": "celery",
-            "args": ["-A", "app.sync.celery_app", "worker", "--loglevel=info", "--pool=solo"],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "env": {
-                    "PYTHONPATH": "${workspaceFolder}"
-                }
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Start Celery worker (app.sync.celery_app)",
-            "dependsOn": "🐋 Start Infrastructure"
-        },
-        {
-            "label": "⏰ Start Celery Beat",
-            "type": "shell",
-            "command": "celery",
-            "args": ["-A", "app.sync.celery_app", "beat", "--loglevel=info"],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "env": {
-                    "PYTHONPATH": "${workspaceFolder}"
-                }
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Start Celery beat scheduler (app.sync.celery_app)",
-            "dependsOn": "🐋 Start Infrastructure"
-        },
-        {
-            "label": "⚛️ Start Frontend",
-            "type": "shell",
-            "command": "npm",
-            "args": ["run", "dev"],
-            "options": {
-                "cwd": "${workspaceFolder}/frontend",
-                "env": {
-                    "NODE_ENV": "development",
-                    "FORCE_COLOR": "1"
-                }
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Start React frontend with hot reload"
-        },
-        {
-            "label": "🚀 Start All Services",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "🐋 Start Infrastructure",
-                "🚀 Start Backend API",
-                "🔄 Start Celery Worker",
-                "⚛️ Start Frontend"
-            ],
-            "group": "build",
-            "detail": "Start all services in development mode"
-        },
-        {
-            "label": "⏹️ Stop All Services",
-            "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose down } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose down } else { Write-Host 'Neither Docker nor Podman found.' -ForegroundColor Red }"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": [],
-            "detail": "Stop all containers (auto-detects Docker/Podman)"
-        },
-        {
-            "label": "🧽 Clean All",
-            "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-c",
-                "if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose down -v --remove-orphans } elseif (Get-Command podman -ErrorAction SilentlyContinue) { podman compose down -v --remove-orphans } else { Write-Host 'Neither Docker nor Podman found.' -ForegroundColor Red }"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": [],
-            "detail": "Stop containers and remove volumes (clean slate)"
-        },
-        {
-            "label": "📦 Install Frontend Dependencies",
-            "type": "shell",
-            "command": "npm",
-            "args": ["install"],
-            "options": {
-                "cwd": "${workspaceFolder}/frontend"
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": [],
-            "detail": "Install frontend dependencies"
-        },
-        {
-            "label": "🐍 Install Backend Dependencies",
-            "type": "shell",
-            "command": "python",
-            "args": ["-m", "pip", "install", "-e", ".[dev]"],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": [],
-            "detail": "Install the app package + dev deps from root pyproject.toml"
-        },
-        {
-            "label": "🛠️ Setup Dev Environment",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "📦 Install Frontend Dependencies",
-                "🐍 Install Backend Dependencies"
-            ],
-            "group": "build",
-            "detail": "Install all dependencies for development"
-        },
-        {
-            "label": "🔍 Lint All Python (Ruff)",
-            "type": "shell",
-            "command": "ruff",
-            "args": ["check", "app", "tests"],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Run Ruff linter on app + tests"
-        },
-        {
-            "label": "✨ Format All Python (Ruff)",
-            "type": "shell",
-            "command": "ruff",
-            "args": ["format", "app", "tests"],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Format all Python code with Ruff"
-        },
-        {
-            "label": "🔎 Type Check (Mypy)",
-            "type": "shell",
-            "command": "mypy",
-            "args": ["app"],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Run Mypy type checker on the app package"
-        },
-        {
-            "label": "🧪 Run Tests",
-            "type": "shell",
-            "command": "python",
-            "args": ["tests/test_release_date_rule.py"],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": true
-            },
-            "problemMatcher": [],
-            "detail": "Run the ADR-0002 release-date rule unit checks"
-        },
-        {
-            "label": "✅ Run All Quality Checks",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "🔍 Lint All Python (Ruff)",
-                "✨ Format All Python (Ruff)",
-                "🔎 Type Check (Mypy)",
-                "🧪 Run Tests"
-            ],
-            "group": "test",
-            "detail": "Run all code quality checks (Ruff, Mypy, tests)"
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Backend API",
+      "type": "shell",
+      "command": "uvicorn",
+      "args": ["app.main:app", "--reload", "--port", "8000", "--host", "0.0.0.0"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "PYTHONPATH": "${workspaceFolder}" }
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Start consolidated backend API (public + admin)"
+    },
+    {
+      "label": "Start Celery Worker",
+      "type": "shell",
+      "command": "celery",
+      "args": ["-A", "app.sync.celery_app", "worker", "--loglevel=info", "--pool=solo"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "PYTHONPATH": "${workspaceFolder}" }
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Start Celery worker (app.sync.celery_app)"
+    },
+    {
+      "label": "Start Celery Beat",
+      "type": "shell",
+      "command": "celery",
+      "args": ["-A", "app.sync.celery_app", "beat", "--loglevel=info"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "PYTHONPATH": "${workspaceFolder}" }
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Start Celery beat scheduler (app.sync.celery_app)"
+    },
+    {
+      "label": "Start Frontend",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": { "NODE_ENV": "development", "FORCE_COLOR": "1" }
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Start React frontend with hot reload"
+    },
+    {
+      "label": "Install Frontend Dependencies",
+      "type": "shell",
+      "command": "npm",
+      "args": ["install"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Install frontend dependencies"
+    },
+    {
+      "label": "Install Backend Dependencies",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "pip", "install", "-e", ".[dev]"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Install the app package + dev deps from root pyproject.toml"
+    },
+    {
+      "label": "Lint All Python (Ruff)",
+      "type": "shell",
+      "command": "ruff",
+      "args": ["check", "app", "tests"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Run Ruff linter on app + tests"
+    },
+    {
+      "label": "Format All Python (Ruff)",
+      "type": "shell",
+      "command": "ruff",
+      "args": ["format", "app", "tests"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Ruff format all Python"
+    },
+    {
+      "label": "Type Check (Mypy)",
+      "type": "shell",
+      "command": "mypy",
+      "args": ["app"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Run Mypy type checker on the app package"
+    },
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "python",
+      "args": ["tests/test_release_date_rule.py"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Run the ADR-0002 release-date rule unit checks"
+    },
+    {
+      "label": "Run All Quality Checks",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Lint All Python (Ruff)",
+        "Format All Python (Ruff)",
+        "Type Check (Mypy)",
+        "Run Tests"
+      ],
+      "group": "test",
+      "detail": "Run all code quality checks (Ruff, Mypy, tests)"
+    }
+  ]
 }
