@@ -4,9 +4,76 @@ A monthly calendar of EU video-game releases. The core value is **"what comes
 out, and when"**, EU-centric, backed by a single consolidated FastAPI service,
 PostgreSQL, Redis, and a Celery worker that syncs from IGDB.
 
-This README is the single entry point — it consolidates the previous split of
-setup/quickstart/devcontainer/documentation guides into one place. Architecture
-and domain vocabulary live separately (see [Docs](#docs)).
+This README is the single entry point and consolidates the previous split of
+setup/quickstart/devcontainer/deploy/domain documentation into one place.
+
+---
+
+## Domain glossary
+
+Pure domain vocabulary, implementation-free — the "what things ARE" of the
+product. Updated the moment a term resolves.
+
+- **Videogame Calendar** — what the product IS: a web app that shows a monthly
+  calendar of video-game releases. The core value is "what comes out, and when",
+  EU-centric. _Avoid_: "game calendar", "release tracker" as interchangeable
+  synonyms — the calendar view is the product, the underlying data is a set of
+  releases.
+
+- **Game** — a title in the catalog (e.g. "Zelda: Tears of the Kingdom"). Has a
+  name, is associated to genres, platforms, a studio/company and optionally a
+  franchise.
+
+- **Release** — a Game's dated calendar event. One Game has exactly ONE canonical
+  Release shown on the calendar, on one day (see **EU release date**). Not to be
+  confused with the many raw dates IGDB may hold for a game — the sync collapses
+  those into one.
+
+- **EU release date** — the single canonical date a Game appears on the calendar.
+  Defined by the **release-date rule**: prefer an IGDB entry whose region is Europe
+  (1); among several EU dates prefer the one whose human-readable label/note matches
+  the announced date, else the earliest. Fall back to the Worldwide (8) region under
+  the same rule. With no dated entry at all, the Game is **TBA**.
+  _Avoid_: "release_date"/"first_release_date" as two different columns — there is
+  ONE date.
+
+- **Worldwide (IGDB region 8)** — the fallback region used when a Game has no
+  Europe-dated IGDB entry, so well-known titles aren't marked TBA just for lacking
+  an EU row. IGDB region codes: 1=Europe, 8=Worldwide, 2=NA, 3=AU, 5=JP.
+
+- **TBA** — a Game with no usable date under the release-date rule. Shown as "TBA",
+  kept in the catalog, but NOT placed on the calendar grid until it acquires a date.
+
+- **Released / Upcoming** — derived status of a Game from its **EU release date**:
+  released = date ≤ now, upcoming = date > now. Derived, never stored as separate
+  columns.
+
+- **Genre / Platform** — the two filter dimensions of the catalog. A Game has
+  many-to-many relationships to both. Used by the calendar's filter bar.
+
+- **Studio (Company)** — the maker of a Game. A Game belongs to a Company;
+  optionally a Game belongs to one **Franchise** (a series identity spanning
+  multiple Games).
+
+- **Sync** — the recurring process that pulls data from **IGDB** into the catalog and
+  computes each Game's **EU release date**. Runs on a schedule (the **sync cadence**),
+  and can be triggered manually from **Admin**.
+
+- **Sync cadence** — how often the **Sync** runs. Current choice: keep the existing
+  cadence (hourly delta, daily full, weekly cleanup — see Background jobs).
+
+- **IGDB** — the external data source (release dates, genres, platforms, companies,
+  franchises). The catalog is populated entirely from it; the app holds no
+  hand-entered game data.
+
+- **Admin** — the token-gated operations surface for things like triggering a manual
+  **Sync**. v1 has no end-user accounts; only this admin ops surface exists, gated by
+  a token.
+
+- **Calendar** — the product's primary view: a month grid of **Releases** bucketed by
+  day. Loading a month is one request for that month's window; days are grouped
+  client-side. _Avoid_: using "calendar" to mean the underlying release data — the
+  data is **Releases**.
 
 ---
 
@@ -29,7 +96,7 @@ Frontend (React/Vite) ──► FastAPI app (app.main) ──► PostgreSQL
 ```
 
 Per **ADR-0003**, production deploys as a **Docker Compose stack on a single
-small VPS** (not Azure). See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the runbook.
+small VPS** (not Azure). See the [Deployment section](#deployment-vps-with-docker-compose).
 
 ### Technology stack
 
@@ -59,7 +126,7 @@ videogamecalendar/
 ├── alembic/                # Database migrations
 ├── frontend/               # React application (port 3000)
 ├── tests/                  # Backend tests (ADR-0002 release-date rule)
-├── docs/                   # ADRs + deploy runbook
+├── docs/                   # ADRs + progress/outstanding-work status
 ├── Dockerfile              # One image for web/worker/beat/migrate
 ├── pyproject.toml          # All backend deps (+ ruff/mypy/bandit dev extras)
 └── docker-compose.yml      # postgres, redis, migrate, app, worker, beat, frontend
@@ -130,7 +197,7 @@ Codespaces) and written into `.env` on container start. See
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | Postgres DSN (default `postgresql://gameuser:gamepass@postgres:5432/gamecalendar`) |
+| `DATABASE_URL` | Postgres DSN (default `postgresql://gameuser:***@postgres:5432/gamecalendar`) |
 | `REDIS_URL` | Redis URL for cache **and** the Celery broker/backend (single URL) |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB API credentials for sync (get from https://api-docs.igdb.com) |
 | `ADMIN_TOKEN` | Bearer token gating the `/admin/*` routes (`openssl rand -hex 32`) |
@@ -228,19 +295,191 @@ celery -A app.sync.celery_app inspect ping   # check workers
 docker compose down -v && docker compose up -d postgres redis && alembic upgrade head
 ```
 
+---
+
+## Deployment (VPS with Docker Compose)
+
+Deployment target per **ADR-0003**: one always-on small VPS (e.g. OVH) running the whole
+system as a Docker Compose stack. No managed autoscaling; the single box pays for idle,
+which is the right trade-off at this scale. There is **no Azure deployment** — the obsolete
+Azure workflow was removed.
+
+> This runbook matches the current `docker-compose.yml` (one app image, five roles:
+> `migrate`, `app`, `worker`, `beat` — plus `postgres`, `redis`, `frontend`).
+
+### Architecture being deployed
+
+| Compose service | Role | Talks on |
+|-----------------|------|----------|
+| `postgres`      | PostgreSQL 17 | 5432 (internal) |
+| `redis`         | Redis 7 (cache + Celery broker/backend) | 6379 (internal) |
+| `migrate`       | runs `alembic upgrade head`, exits 0 | – (one-shot) |
+| `app`           | FastAPI — public + admin routes | **8000** |
+| `worker`        | Celery worker — consumes IGDB sync tasks | – |
+| `beat`          | Celery beat — hourly delta / daily 2am / weekly cleanup | – |
+| `frontend`      | built React app served by nginx | **80 → 3000** (dev), port 80 in prod |
+
+`app`/`worker`/`beat` start only **after** `migrate` completes successfully
+(`service_completed_successfully`), so a fresh database is migrated automatically.
+
+### 1. Prerequisites
+
+- A VPS (1–2 vCPU, 2–4 GB RAM is plenty): any recent Ubuntu/Debian.
+- SSH access (as root or a sudo user).
+- Docker Engine **with the compose plugin** (`docker compose`, not the legacy `docker-compose`).
+- A domain (recommended) and a way to issue TLS (Caddy makes this automatic).
+
+### 2. Install Docker on the VPS
+
+```bash
+# Official convenience script (Ubuntu/Debian)
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"
+# re-login, then confirm
+docker --version && docker compose version
+```
+
+### 3. Clone the repo and configure environment
+
+```bash
+sudo mkdir -p /opt/videogamescalendar && sudo chown "$USER":"$USER" /opt/videogamescalendar
+git clone https://github.com/happySpartan/videogamescalendar.git /opt/videogamescalendar/app
+cd /opt/videogamescalendar/app
+
+cp .env.example .env
+# EDIT .env — must set:
+#   IGDB_CLIENT_ID=...
+#   IGDB_CLIENT_SECRET=...
+#   ADMIN_TOKEN=<openssl rand -hex 32>
+# DATABASE_URL/REDIS_URL in compose are overridden to point at the postgres/redis
+# services, so you normally leave those as-is.
+```
+
+> See `.env.example` for the full list. The backend defaults are fine for a first boot; the
+> three you must set for a running product are the IGDB credentials and the admin token.
+
+### 4. Build and start the stack
+
+```bash
+docker compose up -d --build
+```
+
+This builds the single app image and the frontend image, applies migrations via `migrate`,
+then starts `app`, `worker`, and `beat`.
+
+### 5. Verify
+
+```bash
+docker compose ps                 # all services Up/healthy
+curl -fsS http://localhost:8000/health   # {"status":"healthy", database:"connected", redis:"connected"...}
+curl -fsS 'http://localhost:8000/releases?from=2030-01-01&to=2030-01-31&limit=10'
+docker compose logs -f app worker beat   # watch sync + scheduler activity
+```
+
+Trigger a manual sync (the worker consumes it); the admin API is token-gated:
+
+```bash
+curl -fsS -X POST http://localhost:8000/admin/sync/games \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"full_sync": true}'
+# then confirm rows grow
+docker compose exec postgres psql -U gameuser -d gamecalendar -c "select count(*) from games;"
+```
+
+### 6. Put it behind TLS with a reverse proxy (recommended)
+
+The API listens on `:8000` and the frontend on `:80`. For a real deployment:
+
+- **Option A — Caddy (easiest, automatic Let's Encrypt):**
+
+  ```caddyfile
+  # /etc/caddy/Caddyfile
+  calendar.example.com {
+      # frontend
+      handle {
+          reverse_proxy localhost:80
+      }
+  }
+  api.calendar.example.com {
+      # API (public + admin)
+      reverse_proxy localhost:8000
+  }
+  ```
+
+- **Option B — nginx:** proxy `api.<domain>` → `localhost:8000` and `<domain>` → `localhost:80`,
+  with a certbot TLS block.
+
+#### Production-readiness gaps to close while you're here
+
+1. **Frontend → API URL.** The frontend image bakes `VITE_GAME_API_URL` into the JS bundle at
+   `npm run build` time. It is now a **build arg** (`frontend/Dockerfile`), wired through
+   `docker-compose.yml` as `VITE_GAME_API_URL: ${VITE_GAME_API_URL:-http://localhost:8000}`.
+   On the VPS the browser, not the server, calls the API — set `VITE_GAME_API_URL` in `.env` to
+   the real public API URL (e.g. `https://api.calendar.example.com`) **before** `docker compose
+   up -d --build`. Setting it at runtime (the old `environment:` block) had zero effect because
+   Vite reads it during the build.
+2. **CORS.** The API reads its allowed origins from the `CORS_ORIGINS` env var
+   (`app/main.py` → `app/config.py`), defaulting to `*`. Before exposing the API publicly, set
+   it in `.env` to your real frontend origin(s), e.g. `CORS_ORIGINS=https://calendar.example.com`
+   (comma-separated for multiple). `docker-compose.yml` forwards `${CORS_ORIGINS:-*}` to the app
+   service.
+3. **Admin token.** The `/admin/*` routes are gated by `ADMIN_TOKEN` (env). Do **not** expose
+   `/admin` through the proxy unless you add auth in front; keep it on the private interface if
+   possible.
+4. **Persistent data.** Both `postgres_data` and `redis_data` volumes persist via compose;
+   don't `docker compose down -v` unless you intend to wipe them.
+
+### 7. Backups
+
+With the stack running (and preferably the app briefly stopped for a clean dump):
+
+```bash
+docker compose exec postgres pg_dump -U gameuser -d gamecalendar -Fc -f /tmp/app.dump
+docker compose cp postgres:/tmp/app.dump ./backups/$(date +%F).dump
+```
+
+Store backups off-box (rsync to another host, or object storage). Redis is a cache/broker —
+its data is re-derivable from IGDB, so a Redis backup is optional.
+
+### 8. Updates (rolling deploy)
+
+```bash
+cd /opt/videogamescalendar/app
+git pull
+docker compose up -d --build
+# migrations apply automatically via the migrate service before app/worker/beat restart
+# verify:
+curl -fsS http://localhost:8000/health
+```
+
+### 9. Troubleshooting
+
+| Symptom | Likely cause / check |
+|---------|----------------------|
+| `/health` shows `database: disconnected` | Postgres not up/healthy: `docker compose ps`, `docker compose logs postgres` |
+| Empty tables | migration didn't run: `docker compose logs migrate`; run `docker compose run --rm migrate` |
+| No new games after sync | IGDB creds missing or invalid; check `docker compose logs worker`; test the OAuth token manually |
+| `migrate` never completes | `docker compose logs migrate` for the Alembic error (e.g. missing `pg_trgm` — the initial migration creates it) |
+| Frontend calls `localhost` | `VITE_GAME_API_URL` baked at build time — rebuild after setting the public URL (see §6.1) |
+
+### 10. Teardown (if ever needed)
+
+```bash
+docker compose down          # keep volumes
+docker compose down -v       # WIPE postgres_data + redis_data
+```
+
+---
+
 ## Docs
 
-- **Domain glossary** (what things *are*): [`CONTEXT.md`](CONTEXT.md) — frozen,
-  implementation-free vocabulary.
 - **Architecture decisions** (ADRs): [`docs/adr/`](docs/adr/)
   - `0001` — consolidate to a single service + package
   - `0002` — EU-centric release date with Worldwide fallback
   - `0003` — production deploy on a single VPS with Docker Compose
-- **Deploy runbook**: [`docs/DEPLOY.md`](docs/DEPLOY.md) — VPS setup, TLS,
-  backups, updates.
-- **Dev container**: [`.devcontainer/README.md`](.devcontainer/README.md)
-- **Progress & outstanding work**: [`docs/PROGRESS.md`](docs/PROGRESS.md) —
-  in-flight status, open tasks, production-readiness gaps.
+- **Progress & outstanding work**: [`docs/PROGRESS.md`](docs/PROGRESS.md) — living status:
+  open/in-flight tasks first, then an archive of what's done.
+- **Domain glossary** and **deployment runbook**: consolidated here in this README.
 
 ## Contributing
 

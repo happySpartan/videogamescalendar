@@ -27,8 +27,8 @@ remaining epic.
 
 ### 1. Deploy to the VPS (ADR-0003) — main epic
 
-`docs/DEPLOY.md` is a complete runbook (Docker install → compose up → TLS via Caddy/nginx →
-backups → rolling update), but no VPS has been provisioned. Steps:
+`README.md` (Deployment section) is a complete runbook (Docker install → compose up → TLS
+via Caddy/nginx → backups → rolling update), but no VPS has been provisioned. Steps:
 provision a box → install Docker → clone the repo → set `.env`
 (`IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` / `ADMIN_TOKEN`) → `docker compose up -d --build` →
 verify `/health` and `/releases` → add TLS fronting.
