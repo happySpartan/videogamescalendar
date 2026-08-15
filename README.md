@@ -185,13 +185,75 @@ cd frontend && npm install && npm run dev
 
 ### Codespaces / dev containers
 
-The repo includes a `.devcontainer/` that is fully wired for GitHub
-Codespaces: the post-create script installs Python + Node deps, starts
-Postgres/Redis containers, and creates `.env` from `.env.example`. IGDB
-credentials are read automatically from the `IGDB_CLIENT_ID` and
-`IGDB_CLIENT_SECRET` **Codespace secrets** (set them in Settings → Secrets →
-Codespaces) and written into `.env` on container start. See
-[`.devcontainer/README.md`](.devcontainer/README.md).
+The repo includes a `.devcontainer/` fully wired for **GitHub Codespaces** — the
+post-create script installs Python + Node deps, starts Postgres/Redis containers,
+and creates `.env` from `.env.example`. There is **one consolidated `app/` package**
+(a single FastAPI process for public + admin routes, plus the Celery worker/beat and
+Alembic migrations) running alongside the frontend.
+
+#### Included toolchain
+
+- **Python 3.14** with the app package + dev deps installed from `pyproject.toml`
+- **uv** — fast Python package/venv manager (preferred over raw pip here)
+- **Node.js 20** for the React/Vite frontend
+- **PostgreSQL client** (`psql`, `pg_dump`) and **Redis CLI** (`redis-cli`)
+- **jq**, **Docker-in-Docker**, and the **GitHub CLI** (`gh`)
+
+#### Services
+
+| Service | Purpose | Port |
+|---------|---------|------|
+| PostgreSQL 17 | main database | 5432 |
+| Redis 7 | cache + Celery broker/backend | 6379 |
+| Backend | one FastAPI process (public + admin) | 8000 |
+| Frontend | Vite dev server | 3000 |
+
+#### IGDB credentials via Codespace secrets (recommended)
+
+Set these as **GitHub Codespace secrets** (repo-level: Settings → Secrets and
+variables → Codespaces, or user-level for use across repos). They are injected as
+environment variables at container start and written into `.env` by the post-create
+script automatically:
+
+- `IGDB_CLIENT_ID`
+- `IGDB_CLIENT_SECRET`
+- `ADMIN_TOKEN` (optional but recommended)
+
+> Requires a container **rebuild** after adding/updating a secret — Codespace
+> secrets are only injected into new container sessions, not running ones.
+
+If the secrets are present at build time you'll see "IGDB credentials populated from
+Codespace secrets." Otherwise `.env` keeps placeholders and can be edited manually.
+
+#### Using it
+
+**Codespaces (recommended):** open the repo with "Code" → "Codespaces" → "New
+codespace", wait ~2–3 minutes for the post-create setup, add IGDB credentials, and
+start developing.
+
+**Local VS Code with Dev Containers:** install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers),
+then:
+
+```bash
+git clone https://github.com/happySpartan/videogamescalendar.git
+cd videogamescalendar
+cp .env.example .env   # then add your IGDB credentials
+code .
+```
+
+When prompted, click "Reopen in Container" (or `F1` → "Dev Containers: Reopen in
+Container") and wait for the post-create script to complete.
+
+#### Dev container troubleshooting
+
+- **Container won't start** — make sure Docker Desktop is running; try `F1` → "Dev
+  Containers: Rebuild Container".
+- **Database connection issues** — check `pg_isready -h postgres -U gameuser -d gamecalendar`,
+  or `docker compose logs postgres`.
+- **Port conflicts** — ensure 3000, 5432, 6379, and 8000 are free.
+- **Node modules issues** — `cd frontend && rm -rf node_modules package-lock.json && npm install`.
+- **Python dependency issues** — `pip install -e ".[dev]" --force-reinstall`.
 
 ## Environment variables
 

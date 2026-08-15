@@ -1,130 +1,124 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "🚀 Debug Backend API",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "app.main:app",
-                "--reload",
-                "--port",
-                "8000",
-                "--host",
-                "0.0.0.0"
-            ],
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}",
-                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/0"
-            },
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "🔄 Debug Celery Worker",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "celery",
-            "args": [
-                "-A",
-                "app.sync.celery_app",
-                "worker",
-                "--loglevel=debug",
-                "--pool=solo"
-            ],
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}",
-                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/0"
-            },
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "⏰ Debug Celery Beat",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "celery",
-            "args": [
-                "-A",
-                "app.sync.celery_app",
-                "beat",
-                "--loglevel=info"
-            ],
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}",
-                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/0"
-            },
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "⚛️ Debug Frontend (Vite)",
-            "type": "node",
-            "request": "launch",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": [
-                "run",
-                "dev"
-            ],
-            "cwd": "${workspaceFolder}/frontend",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"],
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ]
-        },
-        {
-            "name": "🌐 Launch Chrome (Frontend)",
-            "type": "chrome",
-            "request": "launch",
-            "url": "http://localhost:3000",
-            "webRoot": "${workspaceFolder}/frontend"
-        },
-        {
-            "name": "🧪 Debug Python Script",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}",
-                "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
-                "REDIS_URL": "redis://localhost:6379/0"
-            },
-            "console": "integratedTerminal",
-            "justMyCode": false
-        }
-    ],
-    "compounds": [
-        {
-            "name": "🚀 Debug Backend",
-            "configurations": [
-                "🚀 Debug Backend API",
-                "🔄 Debug Celery Worker"
-            ],
-            "stopAll": true,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        },
-        {
-            "name": "🌟 Debug Full Stack",
-            "configurations": [
-                "🚀 Debug Backend API",
-                "🔄 Debug Celery Worker",
-                "⚛️ Debug Frontend (Vite)",
-                "🌐 Launch Chrome (Frontend)"
-            ],
-            "stopAll": true,
-            "preLaunchTask": "🐋 Start Infrastructure"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Backend API",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--port",
+        "8000",
+        "--host",
+        "0.0.0.0"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
+        "REDIS_URL": "redis://localhost:6379/0"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug Celery Worker",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "celery",
+      "args": [
+        "-A",
+        "app.sync.celery_app",
+        "worker",
+        "--loglevel=debug"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
+        "REDIS_URL": "redis://localhost:6379/0"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug Celery Beat",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "celery",
+      "args": [
+        "-A",
+        "app.sync.celery_app",
+        "beat",
+        "--loglevel=info"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
+        "REDIS_URL": "redis://localhost:6379/0"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug Frontend (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Launch Chrome (Frontend)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/frontend"
+    },
+    {
+      "name": "Debug Python Script",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "postgresql://gameuser:gamepass@localhost:5432/gamecalendar",
+        "REDIS_URL": "redis://localhost:6379/0"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Backend",
+      "configurations": [
+        "Debug Backend API",
+        "Debug Celery Worker"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Debug Full Stack",
+      "configurations": [
+        "Debug Backend API",
+        "Debug Celery Worker",
+        "Debug Frontend (Vite)",
+        "Launch Chrome (Frontend)"
+      ],
+      "stopAll": true
+    }
+  ]
 }
