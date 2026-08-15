@@ -22,11 +22,8 @@ React application for browsing upcoming video game releases with modern UI.
 ```bash
 cd frontend
 npm install
-
-# Copy environment file
-cp .env.example .env.development
-# Edit with your API endpoints
-
+# Environment config lives in .env.development (gitignored) — it already contains
+# sensible dev defaults (VITE_GAME_API_URL=http://localhost:8000). Override as needed.
 npm run dev
 ```
 
