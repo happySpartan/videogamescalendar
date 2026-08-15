@@ -20,7 +20,7 @@ runbook exists and CI is green, but the VPS has **not been stood up yet**.
 [ ] CI green (ruff/mypy/tsc/build + Docker + runtime pass)   →  works (see below)
 [ ] ADR-0002 release-date rule implemented + tested          →  works
 [ ] VPS deploy (ADR-0003) actually performed                 →  NOT DONE
-[ ] IGDB live sync proven against real credentials           →  gated on secrets
+[ ] IGDB live sync proven against real credentials           →  works (see below)
 ```
 
 ## Implemented & verified
@@ -42,6 +42,11 @@ runbook exists and CI is green, but the VPS has **not been stood up yet**.
   `pip install -e ".[dev]"` works on 3.14. Verified on a real CPython 3.14.7: quiet wheel
   install (+ import of all binary deps incl. greenlet/uvloop), ruff + mypy clean, and all 7
   ADR-0002 release-date checks pass.
+- **Live IGDB sync** proven end-to-end against real Codespace-secret credentials: a manual
+  full sync (`POST /admin/sync/games`, `full_sync=true`) pulled **92 upcoming games** across
+  Aug–Dec 2026 (all with canonical EU/WW dates from real IGDB data) and the calendar
+  (`GET /releases`) serves them. This surfaced and fixed several real-API integration bugs;
+  see next section.
 
 ## Outstanding work
 
@@ -82,17 +87,50 @@ epic. Steps: provision box, install Docker, clone repo, set `.env` (`IGDB_CLIENT
 `IGDB_CLIENT_SECRET` / `ADMIN_TOKEN`), `docker compose up -d --build`, verify `/health` and
 `/releases`, add TLS fronting.
 
-### 4. Prove the live IGDB sync end-to-end
+### 4. ~~Prove the live IGDB sync end-to-end~~ — DONE
 
 The sync pipeline is implemented and CI can run it with real secrets, but it has not yet been
 confirmed against actual IGDB credentials. When credentials are available, trigger a manual
 sync (`POST /admin/sync/games` with `{"full_sync": true}`) and confirm rows populate.
+
+Done against real Codespace-secret credentials — see the "Live IGDB sync" entry above and the
+bug-fix log below.
 
 ### 5. Security hardening (when reaching production)
 
 - Keep `/admin/*` off the public reverse proxy (or add auth in front of it).
 - Rotate/use the `ADMIN_TOKEN` from `.env`; never bake it into the frontend build.
 - Confirm `.env` files are gitignored (do not commit `IGDB_CLIENT_SECRET` / `ADMIN_TOKEN`).
+
+## Bug fixes: live IGDB integration (from the end-to-end proof)
+
+Fixes required to make the sync work against the real API (all green: ruff + mypy + 7/7
+ADR-0002 checks):
+
+- **IGDB v4 `release_dates` field is `release_region`, not `region`.** The old code read
+  `region`, which always came back `None`, so `select_release_date` returned `None` and every
+  game collapsed to **TBA**. Switched `RELEASE_DATE_FIELDS` and the selector to `release_region`
+  (mirrored in the unit test).
+- **Drop `game_localizations.language.name`** — IGDB rejects it as an invalid field on the
+  `games` endpoint (the API refused the whole query). Removed from `GAME_FIELDS`; the rest of
+  the localization shape is unchanged.
+- **`companies.start_date` widened INT4 → BIGINT.** IGDB stores full Unix epochs, negative for
+  pre-1970 foundations (Nintendo 1889 → negative epoch overflows INT4). New migration
+  `2e9c41fbb2a7`; model `Column(Integer)` → `Column(BigInteger)`.
+- **`worker.py` session-scoped dedup cache in `_lookup_or_create`.** With SQLAlchemy's batched
+  (`insertmanyvalues`) flush, a just-added (not-yet-committed) company/franchise wasn't visible
+  to a follow-up `query().filter_by().first()`, so two games referencing the same entity each
+  inserted a row → unique `igdb_id` violation. A cache keyed by `(model, igdb_id)` reuses the
+  in-flight object. Also added a same-instance `_add_unique` guard when appending to
+  many-to-many collections (a studio appearing in several involved-company roles no longer emits
+  a duplicate association row).
+- **`app/api.py`**: `/games/search` must be declared **before** `/games/{game_id}` (FastAPI
+  matches in registration order; the int `{game_id}` route would swallow `search`), `regions`
+  detail field is `identifier` (not `code`), and `/genres` + `/platforms` now eager-load
+  `games` so `game_count` doesn't N+1.
+- **`app/main.py`**: Redis liveness client close changed `aclose()` → `close()` — the
+  runtime-available asyncio-redis method on this stack (the earlier `aclose` call broke the
+  app/lifespan teardown).
 
 ## Backlog carried over from the (retired) architecture plan
 

@@ -114,10 +114,23 @@ async def _process_game_data(db, game_data: dict) -> Game:
 
 
 async def _lookup_or_create(db, model, igdb_id: int, defaults: dict):
+    # Deduplicate within the current session/transaction: with SQLAlchemy's
+    # batched (insertmanyvalues) flush, a pending object added for ``igdb_id``
+    # is not yet visible to a follow-up ``query().filter_by().first()``, so two
+    # games referencing the same (not-yet-committed) company/franchise would
+    # each create a row and violate the unique ``igdb_id`` index. A session-
+    # bound cache keyed by (model, igdb_id) makes the second reference reuse
+    # the same in-flight object instead.
+    cache: dict = db.info.setdefault("_sync_ref_cache", {})
+    key = (model, igdb_id)
+    if key in cache:
+        return cache[key]
+
     obj = db.query(model).filter_by(igdb_id=igdb_id).first()
     if obj is None:
         obj = model(igdb_id=igdb_id, **defaults)
         db.add(obj)
+    cache[key] = obj
     return obj
 
 
@@ -129,11 +142,21 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
     game.languages.clear()
     game.regions.clear()
 
+    def _add_unique(collection, obj) -> None:
+        # A game can reference the same entity more than once (e.g. a studio
+        # appearing in several involved-companies roles). Appending it twice
+        # would emit a duplicate many-to-many row and trip the association
+        # table's unique (game_id, ref_id) index, so skip anything already
+        # present. The many-to-many collection is a list; `in` is an identity
+        # check here (our models don't define __eq__).
+        if obj not in collection:
+            collection.append(obj)
+
     for g in game_data.get("genres") or []:
         obj = await _lookup_or_create(
             db, Genre, g["id"], {"name": g.get("name"), "slug": g.get("slug")}
         )
-        game.genres.append(obj)
+        _add_unique(game.genres, obj)
     for p in game_data.get("platforms") or []:
         obj = await _lookup_or_create(
             db,
@@ -141,7 +164,7 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
             p["id"],
             {"name": p.get("name"), "abbreviation": p.get("abbreviation")},
         )
-        game.platforms.append(obj)
+        _add_unique(game.platforms, obj)
     for ic in game_data.get("involved_companies") or []:
         comp = ic.get("company") or {}
         if comp.get("id"):
@@ -151,12 +174,12 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
                 comp["id"],
                 {"name": comp.get("name"), "description": comp.get("description")},
             )
-            game.companies.append(obj)
+            _add_unique(game.companies, obj)
     for f in game_data.get("franchises") or []:
         obj = await _lookup_or_create(
             db, Franchise, f["id"], {"name": f.get("name"), "slug": f.get("slug")}
         )
-        game.franchises.append(obj)
+        _add_unique(game.franchises, obj)
     for lang in game_data.get("languages") or []:
         obj = await _lookup_or_create(
             db,
@@ -164,7 +187,7 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
             lang["id"],
             {"name": lang.get("name"), "native_name": lang.get("native_name")},
         )
-        game.languages.append(obj)
+        _add_unique(game.languages, obj)
     for r in game_data.get("regions") or []:
         obj = await _lookup_or_create(
             db,
@@ -172,7 +195,7 @@ async def _process_game_relationships(db, game: Game, game_data: dict) -> None:
             r["id"],
             {"identifier": r.get("identifier"), "name": r.get("name") or r.get("identifier")},
         )
-        game.regions.append(obj)
+        _add_unique(game.regions, obj)
 
 
 # --- tasks ------------------------------------------------------------------

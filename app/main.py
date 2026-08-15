@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
         deps.set_redis_client(client)
     except Exception as exc:
         logger.error("Redis connection failed: %s", exc)
-        await client.aclose()
+        await client.close()
         deps.set_redis_client(None)
 
     yield
@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Video Game Calendar API...")
     current = deps.redis_client
     if current is not None:
-        await current.aclose()
+        await current.close()
     deps.set_redis_client(None)
 
 

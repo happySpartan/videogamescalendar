@@ -16,7 +16,7 @@ def mk(date=None, region=None, human=None, status=0):
     if date is not None:
         e["date"] = date
     if region is not None:
-        e["region"] = region
+        e["release_region"] = region
     if human is not None:
         e["human"] = human
     e["status"] = status

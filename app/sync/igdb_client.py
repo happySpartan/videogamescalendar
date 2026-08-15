@@ -59,13 +59,12 @@ GAME_FIELDS: str = (
     "involved_companies.company.description,"
     "franchises.id,franchises.name,"
     "game_localizations.region.identifier,"
-    "game_localizations.language.name,"
     "status,category,hypes,follows,url,updated_at"
 )
 
 
 # Fields for the release_dates endpoint (region + human label feed ADR-0002).
-RELEASE_DATE_FIELDS: str = "id,game,date,region,human,m,y,platform,category,status,checksum"
+RELEASE_DATE_FIELDS: str = "id,game,date,release_region,human,m,y,platform,category,status,checksum"
 
 
 def _image_url(image_id: str | None) -> str | None:
@@ -105,7 +104,7 @@ def select_release_date(release_dates: list[dict]) -> int | None:
         return [
             e
             for e in release_dates
-            if e.get("region") == region
+            if e.get("release_region") == region
             and e.get("date") is not None
             and e.get("status") not in EXCLUDED_RELEASE_STATUS
         ]

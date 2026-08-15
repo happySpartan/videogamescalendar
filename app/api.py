@@ -111,6 +111,60 @@ async def get_games(
     return await get_cached_or_fetch(cache_key, fetch_games, expiry=300)
 
 
+# NOTE: /games/search must be declared BEFORE /games/{game_id}; FastAPI matches
+# routes in registration order, so a later /games/{game_id} would otherwise
+# swallow "search" as a literal game id (int parse fails -> 422).
+@router.get("/games/search", response_model=dict[str, Any])
+async def search_games(
+    q: str = Query(..., min_length=1, description="Search query"),
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(10, ge=1, le=50, description="Max results"),
+):
+    """Full-text search for games."""
+    cache_key = f"search:games:{q}:{limit}"
+
+    async def fetch_search_results():
+        query = (
+            select(Game)
+            .options(selectinload(Game.genres), selectinload(Game.platforms))
+            .where(
+                or_(
+                    Game.name.ilike(f"%{q}%"),
+                    Game.summary.ilike(f"%{q}%"),
+                    func.similarity(Game.name, q) > 0.1,
+                )
+            )
+            .order_by(
+                func.similarity(Game.name, q).desc(),
+                Game.total_rating_count.desc().nullslast(),
+            )
+            .limit(limit)
+        )
+        games = (await db.execute(query)).scalars().all()
+
+        return {
+            "query": q,
+            "count": len(games),
+            "results": [
+                {
+                    "id": g.id,
+                    "name": g.name,
+                    "summary": g.summary,
+                    "first_release_date": g.first_release_date.isoformat()
+                    if g.first_release_date
+                    else None,
+                    "rating": g.rating,
+                    "cover_url": g.cover_url,
+                    "genres": [gen.name for gen in g.genres[:3]],
+                    "platforms": [p.name for p in g.platforms[:3]],
+                }
+                for g in games
+            ],
+        }
+
+    return await get_cached_or_fetch(cache_key, fetch_search_results, expiry=600)
+
+
 @router.get("/games/{game_id}", response_model=dict[str, Any])
 async def get_game_by_id(
     game_id: int = Path(..., description="Game ID"),
@@ -170,63 +224,12 @@ async def get_game_by_id(
                 {"id": lang.id, "name": lang.name, "native_name": lang.native_name}
                 for lang in game.languages
             ],
-            "regions": [{"id": r.id, "name": r.name, "code": r.code} for r in game.regions],
+            "regions": [{"id": r.id, "name": r.name, "code": r.identifier} for r in game.regions],
             "created_at": game.created_at.isoformat(),
             "updated_at": game.updated_at.isoformat(),
         }
 
     return await get_cached_or_fetch(cache_key, fetch_game, expiry=600)
-
-
-@router.get("/games/search", response_model=dict[str, Any])
-async def search_games(
-    q: str = Query(..., min_length=1, description="Search query"),
-    db: AsyncSession = Depends(get_db),
-    limit: int = Query(10, ge=1, le=50, description="Max results"),
-):
-    """Full-text search for games."""
-    cache_key = f"search:games:{q}:{limit}"
-
-    async def fetch_search_results():
-        query = (
-            select(Game)
-            .options(selectinload(Game.genres), selectinload(Game.platforms))
-            .where(
-                or_(
-                    Game.name.ilike(f"%{q}%"),
-                    Game.summary.ilike(f"%{q}%"),
-                    func.similarity(Game.name, q) > 0.1,
-                )
-            )
-            .order_by(
-                func.similarity(Game.name, q).desc(),
-                Game.total_rating_count.desc().nullslast(),
-            )
-            .limit(limit)
-        )
-        games = (await db.execute(query)).scalars().all()
-
-        return {
-            "query": q,
-            "count": len(games),
-            "results": [
-                {
-                    "id": g.id,
-                    "name": g.name,
-                    "summary": g.summary,
-                    "first_release_date": g.first_release_date.isoformat()
-                    if g.first_release_date
-                    else None,
-                    "rating": g.rating,
-                    "cover_url": g.cover_url,
-                    "genres": [gen.name for gen in g.genres[:3]],
-                    "platforms": [p.name for p in g.platforms[:3]],
-                }
-                for g in games
-            ],
-        }
-
-    return await get_cached_or_fetch(cache_key, fetch_search_results, expiry=600)
 
 
 # Release calendar endpoint --------------------------------------------------
@@ -342,13 +345,16 @@ async def get_genres(db: AsyncSession = Depends(get_db)):
     cache_key = "genres:all"
 
     async def fetch_genres():
-        genres = (await db.execute(select(Genre).order_by(Genre.name))).scalars().all()
+        genres = (
+            await db.execute(
+                select(Genre).options(selectinload(Genre.games)).order_by(Genre.name)
+            )
+        ).scalars().all()
         return [
             {
                 "id": genre.id,
                 "name": genre.name,
                 "slug": genre.slug,
-                "description": genre.description,
                 "game_count": len(genre.games) if hasattr(genre, "games") else 0,
             }
             for genre in genres
@@ -364,15 +370,17 @@ async def get_platforms(db: AsyncSession = Depends(get_db)):
     cache_key = "platforms:all"
 
     async def fetch_platforms():
-        platforms = (await db.execute(select(Platform).order_by(Platform.name))).scalars().all()
+        platforms = (
+            await db.execute(
+                select(Platform).options(selectinload(Platform.games)).order_by(Platform.name)
+            )
+        ).scalars().all()
         return [
             {
                 "id": platform.id,
                 "name": platform.name,
                 "abbreviation": platform.abbreviation,
-                "alternative_names": platform.alternative_names,
                 "generation": platform.generation,
-                "platform_family": platform.platform_family,
                 "game_count": len(platform.games) if hasattr(platform, "games") else 0,
             }
             for platform in platforms

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Column, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -18,7 +18,7 @@ class Company(Base, TimestampedBase):
     description = Column(Text)
     country = Column(Integer, index=True)
     websites = Column(JSONB)  # Store as JSONB for better querying
-    start_date = Column(Integer)
+    start_date = Column(BigInteger)
     checksum = Column(String(255), unique=True)
 
     # Relationships
