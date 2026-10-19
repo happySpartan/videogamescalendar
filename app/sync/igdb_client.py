@@ -216,18 +216,25 @@ class IGDBService:
         limit: int = 100,
         offset: int = 0,
         updated_after: float | None = None,
+        released_between: tuple[int, int] | None = None,
     ) -> list[dict]:
         """Fetch games, normalized to the shape the sync worker consumes.
 
         ``updated_after`` (unix seconds) turns the call into a delta sync
-        (only games whose `updated_at` is newer are returned). Per-game
-        ``release_dates`` are fetched so each normalized dict carries the
-        canonical ADR-0002 ``first_release_date``.
+        (only games whose `updated_at` is newer are returned).
+        ``released_between`` (unix seconds, half-open ``[start, end)``) limits
+        the fetch to games whose IGDB ``first_release_date`` falls in a window,
+        used by the static export. Per-game ``release_dates`` are fetched so
+        each normalized dict carries the canonical ADR-0002
+        ``first_release_date``.
         """
         include = GAME_FIELDS
         where = "first_release_date != null"
         if updated_after is not None:
             where += f" & updated_at > {int(updated_after)}"
+        if released_between is not None:
+            start, end = released_between
+            where += f" & first_release_date >= {int(start)} & first_release_date < {int(end)}"
 
         query = self._build_query(include, where=where, limit=limit, offset=offset, sort="id asc")
         raw = await self._post("games", query)
@@ -259,8 +266,23 @@ class IGDBService:
         if not game_ids:
             return {}
         ids = ",".join(str(int(i)) for i in game_ids)
-        query = self._build_query(RELEASE_DATE_FIELDS, where=f"game = ({ids})", limit=500)
-        raw = await self._post("release_dates", query)
+        # A batch of games can carry more than one page of release_dates rows
+        # (one per platform x region), so page until a short page comes back.
+        page_size = 500
+        raw: list[dict] = []
+        offset = 0
+        while True:
+            query = self._build_query(
+                RELEASE_DATE_FIELDS,
+                where=f"game = ({ids})",
+                limit=page_size,
+                offset=offset,
+            )
+            page = await self._post("release_dates", query)
+            raw.extend(page)
+            if len(page) < page_size:
+                break
+            offset += page_size
 
         grouped: dict[int, list[dict]] = {}
         for row in raw:

@@ -1,0 +1,97 @@
+name: Static site (GitHub Pages)
+
+# ADR-0004: the public site is a static build. This workflow exports a window
+# of releases from IGDB to JSON (app.static_export), builds the frontend in
+# static mode on top of it, and deploys to GitHub Pages. The schedule is the
+# "sync cadence"; "Run workflow" is the manual sync. Pull requests build only.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; let an in-flight one finish rather than cancel it.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.14"
+  NODE_VERSION: "20"
+
+jobs:
+  build:
+    name: Export IGDB data + build site
+    runs-on: ubuntu-latest
+    env:
+      IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+      IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend package
+        run: pip install -e .
+
+      - name: Export releases from IGDB
+        run: python -m app.static_export --out frontend/public/data
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # Gives the sub-path the site is served from: "/<repo>" on
+      # <user>.github.io, empty once a custom domain is set.
+      - name: Configure Pages
+        id: pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+
+      - name: Build frontend (static mode)
+        working-directory: frontend
+        env:
+          VITE_DATA_MODE: static
+          VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          npm run build
+          # GitHub Pages serves 404.html for unknown paths, which lets
+          # client-side routes like /game/123 load the app on a hard refresh.
+          cp dist/index.html dist/404.html
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

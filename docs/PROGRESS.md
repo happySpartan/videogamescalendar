@@ -1,5 +1,7 @@
 # Progress & Outstanding Work
 
+> Product goals and the phased plan live in [ROADMAP.md](ROADMAP.md).
+
 Living status of the Video Game Calendar project: **open / in-flight work first**, then a
 concise **archive** of what's done. Facts that are finished and stable belong in
 [README](../README.md) / ADRs, not here.
@@ -11,29 +13,26 @@ concise **archive** of what's done. Facts that are finished and stable belong in
 
 Repo is on a **single consolidated backend** (ADR-0001), the **EU release-date rule**
 (ADR-0002) is implemented and unit-verified, CI runs a real Postgres/Redis runtime pass, and
-the **live IGDB sync is proven end-to-end** against real credentials (92 upcoming games served
-on `/releases`). Production deploy targets a **single VPS with Docker Compose** (ADR-0003) —
-runbook and CI are green, but **the VPS has not been stood up yet**. That is the only major
-remaining epic.
+the **live IGDB sync is proven end-to-end**. The public site is now a **static build on
+GitHub Pages** (ADR-0004, replacing the VPS plan of ADR-0003): a scheduled workflow exports
+IGDB data to JSON and deploys the frontend in static mode. It has **not deployed yet** —
+Pages must be enabled and the workflow merged to `main`.
 
 ```md
 [x] CI green (ruff/mypy/tsc/build + Docker + runtime pass)
 [x] ADR-0002 release-date rule implemented + tested
 [x] IGDB live sync proven against real credentials
-[ ] VPS deploy (ADR-0003) actually performed   ← main remaining work
+[x] Static export + static frontend mode + Pages workflow (ADR-0004)
+[ ] First Pages deploy with real data + custom domain   ← main remaining work
 ```
 
 ## Open Tasks (todo)
 
-### 1. Deploy to the VPS (ADR-0003) — main epic
+### 1. First GitHub Pages deploy (ADR-0004) — main epic
 
-`README.md` (Deployment section) is a complete runbook (Docker install → compose up → TLS
-via Caddy/nginx → backups → rolling update), but no VPS has been provisioned. Steps:
-provision a box → install Docker → clone the repo → set `.env`
-(`IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` / `ADMIN_TOKEN`) → `docker compose up -d --build` →
-verify `/health` and `/releases` → add TLS fronting.
-
-_This subsumes the old "Provision the actual VPS" backlog item — same work._
+Enable **Settings → Pages → Source: GitHub Actions**, merge to `main` (or run the
+"Static site (GitHub Pages)" workflow), check the export log's per-month counts, then add
+the custom domain. See README → Deployment (static site on GitHub Pages).
 
 ### 2. Browser-test the frontend against a running API
 
@@ -42,7 +41,7 @@ Postgres/Redis), but no human/automated browser test of the calendar UI — rend
 deep-link `/game/:id` — has ever run. Run `npm run dev` against the backend and verify the
 calendar month view, filtering, and navigation.
 
-### 3. Security hardening (when reaching production)
+### 3. Security hardening (only if the VPS stack is ever deployed)
 
 - Keep `/admin/*` off the public reverse proxy (or add auth in front of it).
 - Rotate/use the `ADMIN_TOKEN` from `.env`; never bake it into the frontend build.
