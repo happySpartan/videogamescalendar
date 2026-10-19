@@ -1,5 +1,4 @@
 .trailer {
-  max-width: 860px;
   border-radius: var(--mantine-radius-md);
   overflow: hidden;
   background: #000;

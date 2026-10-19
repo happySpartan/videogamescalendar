@@ -31,7 +31,7 @@ const resize = (url: string, size: string) => url.replace(/\/t_[a-z0-9_]+\//, `/
 const Trailer: React.FC<{ video: GameVideo }> = ({ video }) => {
   const [playing, setPlaying] = useState(false);
   return (
-    <AspectRatio ratio={16 / 9} className={classes.trailer}>
+    <AspectRatio ratio={16 / 9} className={classes.trailer} maw={860}>
       {playing ? (
         <iframe
           src={`https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1`}
@@ -49,20 +49,41 @@ const Trailer: React.FC<{ video: GameVideo }> = ({ video }) => {
   );
 };
 
-/** "example.com" for a link label; the raw URL if it does not parse. */
-const hostLabel = (url: string) => {
+/** Social/community hosts, labelled by name and listed after official sites. */
+const SOCIAL: Record<string, string> = {
+  'discord.gg': 'Discord',
+  'discord.com': 'Discord',
+  'youtube.com': 'YouTube',
+  'x.com': 'X',
+  'twitter.com': 'X',
+  'instagram.com': 'Instagram',
+  'twitch.tv': 'Twitch',
+  'facebook.com': 'Facebook',
+  'bsky.app': 'Bluesky',
+  'reddit.com': 'Reddit',
+  'tiktok.com': 'TikTok',
+  'en.wikipedia.org': 'Wikipedia',
+};
+
+/** Host without "www."; empty if the URL does not parse. */
+const hostOf = (url: string) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
   } catch {
-    return url;
+    return '';
   }
 };
 
-/** Store buttons first, then up to three other sites (official site, wiki...). */
+/** Store buttons, then official sites before social links (up to four). */
 const Links: React.FC<{ websites: GameWebsite[] }> = ({ websites }) => {
   const stores = websites.filter((w) => w.store);
-  const others = websites.filter((w) => !w.store).slice(0, 3);
-  if (websites.length === 0) return null;
+  const others = websites
+    .filter((w) => !w.store && hostOf(w.url))
+    .map((w) => ({ url: w.url, social: SOCIAL[hostOf(w.url)] }))
+    .sort((a, b) => Number(Boolean(a.social)) - Number(Boolean(b.social)))
+    .filter((w, i, all) => !w.social || all.findIndex((x) => x.social === w.social) === i)
+    .slice(0, 4);
+  if (stores.length === 0 && others.length === 0) return null;
   return (
     <Stack gap="xs">
       {stores.length > 0 && (
@@ -87,7 +108,7 @@ const Links: React.FC<{ websites: GameWebsite[] }> = ({ websites }) => {
         <Group gap="md">
           {others.map((w) => (
             <Anchor key={w.url} href={w.url} target="_blank" rel="noopener noreferrer" size="sm">
-              {hostLabel(w.url)}
+              {w.social ?? hostOf(w.url)}
             </Anchor>
           ))}
         </Group>
