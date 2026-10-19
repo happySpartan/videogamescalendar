@@ -27,45 +27,45 @@ runtime smoke test) green; add tests only where a feature needs them.
 - Single VPS with Docker Compose — [ADR-0003](adr/0003-vps-docker-compose-deploy.md)
 - Domain: already owned. VPS: not yet chosen.
 
-## Phase 1 — Ship v1 (live on VPS with domain + TLS)
+## Phase 1 — Ship v1 (live on VPS with domain + TLS) (#1)
 
 Definition of done: `https://<domain>` serves the calendar with real IGDB data, the sync
 runs on schedule, `/admin/*` is not publicly reachable.
 
-1. **Pick and provision the VPS** — choose a provider (e.g. Hetzner/OVH, 2 vCPU / 4 GB),
+1. **Pick and provision the VPS** (#4) — choose a provider (e.g. Hetzner/OVH, 2 vCPU / 4 GB),
    create the box, SSH hardening (key-only, firewall allowing 22/80/443).
-2. **Deploy the stack** — follow the README runbook: install Docker, clone, set `.env`,
+2. **Deploy the stack** (#5) — follow the README runbook: install Docker, clone, set `.env`,
    `docker compose up -d --build`, verify `/health` and `/releases`.
-3. **Domain + TLS** — point DNS at the VPS, put Caddy in front (automatic HTTPS), serve
+3. **Domain + TLS** (#6) — point DNS at the VPS, put Caddy in front (automatic HTTPS), serve
    frontend and API under the domain, set `CORS_ORIGINS` and `VITE_GAME_API_URL` to it.
-4. **Admin hardening** — keep `/admin/*` off the public proxy (or behind extra auth),
+4. **Admin hardening** (#7) — keep `/admin/*` off the public proxy (or behind extra auth),
    generate a fresh `ADMIN_TOKEN`, confirm no secrets in the repo or frontend bundle.
-5. **Manual browser pass** — verify month view, navigation, filters, search and
+5. **Manual browser pass** (#8) — verify month view, navigation, filters, search and
    `/game/:id` deep links against the live API; fix whatever breaks.
-6. **Backups** — nightly `pg_dump` to off-box storage (data is re-syncable from IGDB, so
+6. **Backups** (#9) — nightly `pg_dump` to off-box storage (data is re-syncable from IGDB, so
    this is cheap insurance, not critical).
 
-## Phase 2 — Calendar export (iCal)
+## Phase 2 — Calendar export (iCal) (#2)
 
 Let people subscribe to releases from Google/Apple/Outlook Calendar.
 
-1. **`GET /calendar.ics`** — iCalendar feed of upcoming releases (all-day events on the
+1. **`GET /calendar.ics`** (#10) — iCalendar feed of upcoming releases (all-day events on the
    EU release date; TBA games excluded), cached in Redis like `/releases`.
-2. **Filtered feeds** — same endpoint accepts `platform` / `genre` query params so a
+2. **Filtered feeds** (#11) — same endpoint accepts `platform` / `genre` query params so a
    user can subscribe to e.g. "Switch releases only".
-3. **Subscribe button in the UI** — copies the feed URL (with the active filters) and
+3. **Subscribe button in the UI** (#12) — copies the feed URL (with the active filters) and
    offers a `webcal://` link.
 
-## Phase 3 — Richer game pages
+## Phase 3 — Richer game pages (#3)
 
 IGDB already has the data; most of the work is fetching and rendering it.
 
-1. **Sync videos + websites** — add `videos.video_id,videos.name` and
+1. **Sync videos + websites** (#13) — add `videos.video_id,videos.name` and
    `websites.url,websites.category` to `GAME_FIELDS` and map them in the worker
    (the `videos` / `websites` columns already exist but are never populated).
-2. **Trailers + screenshot gallery** — embed YouTube trailers and show the
+2. **Trailers + screenshot gallery** (#14) — embed YouTube trailers and show the
    already-synced screenshots on the detail page.
-3. **Store links** — show Steam / PlayStation / Xbox / Nintendo eShop / Epic / GOG links
+3. **Store links** (#15) — show Steam / PlayStation / Xbox / Nintendo eShop / Epic / GOG links
    from IGDB websites, with platform icons.
 
 ## Later / ideas (not committed)
