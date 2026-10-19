@@ -1,4 +1,4 @@
-// Thin, typed fetch client for the game-api microservice.
+// Thin, typed fetch client for the backend API, or the static JSON export.
 // The single source of truth for how the frontend talks to the backend.
 import type {
   GenreRef,
@@ -14,6 +14,9 @@ const BASE_URL =
   import.meta.env.VITE_GAME_API_URL ||
   import.meta.env.VITE_API_URL ||
   'http://localhost:8000';
+
+// Static mode (ADR-0004): read pre-built JSON from <base>/data instead of the API.
+const STATIC_DATA = import.meta.env.VITE_DATA_MODE === 'static';
 
 export class ApiError extends Error {
   status: number;
@@ -60,6 +63,7 @@ class ApiClient {
   }
 
   getReleases(params: ReleaseQueryParams = {}): Promise<ReleasesResponse> {
+    if (STATIC_DATA) return this.getStaticReleases(params);
     return this.getJSON<ReleasesResponse>(
       `/releases${this.buildQuery({
         from: params.from,
@@ -74,17 +78,84 @@ class ApiClient {
   }
 
   getRelease(id: number | string): Promise<Release> {
-    return this.getJSON<Release>(`/games/${id}`);
+    return this.getJSON<Release>(STATIC_DATA ? `/games/${id}.json` : `/games/${id}`);
   }
 
-  getGenres(): Promise<GenreRef[]> {
-    return this.getJSON<GenreRef[]>('/genres');
-  }
+  // Arrow functions: the query hooks pass these as bare references.
+  getGenres = (): Promise<GenreRef[]> =>
+    this.getJSON<GenreRef[]>(STATIC_DATA ? '/genres.json' : '/genres');
 
-  getPlatforms(): Promise<PlatformRef[]> {
-    return this.getJSON<PlatformRef[]>('/platforms');
+  getPlatforms = (): Promise<PlatformRef[]> =>
+    this.getJSON<PlatformRef[]>(STATIC_DATA ? '/platforms.json' : '/platforms');
+
+  // Static mode (ADR-0004): answer /releases from the per-month JSON files,
+  // applying the same filters, ordering and pagination as the API.
+  private async getStaticReleases(params: ReleaseQueryParams): Promise<ReleasesResponse> {
+    const today = new Date().toISOString().slice(0, 10);
+    const from = params.from ?? (params.status === 'upcoming' ? today : undefined);
+    const months = monthsBetween(from ?? today, params.to ?? addMonths(from ?? today, 12));
+
+    const files = await Promise.all(
+      months.map((m) =>
+        this.getJSON<{ releases: Release[] }>(`/releases/${m}.json`).catch((error) => {
+          // Months outside the exported window simply have no file.
+          if (error instanceof ApiError && error.status === 404) return { releases: [] };
+          throw error;
+        }),
+      ),
+    );
+
+    const now = new Date().toISOString();
+    const matches = files
+      .flatMap((f) => f.releases)
+      .filter((r) => {
+        const day = r.release_date?.slice(0, 10);
+        if (!day) return params.status === 'tba';
+        if (params.status === 'tba') return false;
+        if (params.status === 'released' && r.release_date! > now) return false;
+        if (params.status === 'upcoming' && r.release_date! <= now) return false;
+        if (params.from && day < params.from) return false;
+        if (params.to && day > params.to) return false;
+        if (params.genre_id && !r.genres.some((g) => g.id === params.genre_id)) return false;
+        if (params.platform_id && !r.platforms.some((p) => p.id === params.platform_id)) {
+          return false;
+        }
+        return true;
+      });
+
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 50;
+    const total = matches.length;
+    return {
+      releases: matches.slice((page - 1) * limit, page * limit),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
   }
 }
 
-export const apiClient = new ApiClient(BASE_URL);
+/** YYYY-MM keys for every month touched by the [from, to] day range. */
+function monthsBetween(from: string, to: string): string[] {
+  const months: string[] = [];
+  let [year, month] = from.slice(0, 7).split('-').map(Number);
+  const last = to.slice(0, 7);
+  for (;;) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    if (key > last) break;
+    months.push(key);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return months;
+}
+
+function addMonths(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export const apiClient = new ApiClient(STATIC_DATA ? `${import.meta.env.BASE_URL}data` : BASE_URL);
 export default apiClient;

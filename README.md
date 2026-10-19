@@ -95,8 +95,9 @@ Frontend (React/Vite) ──► FastAPI app (app.main) ──► PostgreSQL
                     Celery worker/beat (app.sync)
 ```
 
-Per **ADR-0003**, production deploys as a **Docker Compose stack on a single
-small VPS** (not Azure). See the [Deployment section](#deployment-vps-with-docker-compose).
+Per **ADR-0004**, the public site is a **static build on GitHub Pages**, refreshed
+from IGDB by a scheduled workflow. See [Deployment](#deployment-static-site-on-github-pages).
+The full stack can still run on a VPS with Docker Compose (ADR-0003).
 
 ### Technology stack
 
@@ -320,6 +321,7 @@ pytest required):
 
 ```bash
 python tests/test_release_date_rule.py
+python tests/test_static_export.py   # ADR-0004 static export
 ```
 
 ### Continuous integration
@@ -359,7 +361,38 @@ docker compose down -v && docker compose up -d postgres redis && alembic upgrade
 
 ---
 
+## Deployment (static site on GitHub Pages)
+
+The public site is a **static build on GitHub Pages** (ADR-0004) — no server, database or
+Redis in production. `.github/workflows/pages.yml` runs every 6 hours (and on push to
+`main`, or manually via **Actions → Static site (GitHub Pages) → Run workflow**):
+
+1. `python -m app.static_export --out frontend/public/data` pulls releases from IGDB
+   (2 months back, 12 months ahead) with the EU release-date rule and writes JSON:
+   `releases/YYYY-MM.json`, `games/<igdb_id>.json`, `genres.json`, `platforms.json`,
+   `meta.json`.
+2. The frontend is built with `VITE_DATA_MODE=static`, so it reads those files instead of
+   the API (`VITE_BASE_PATH` sets the sub-path when served from `<user>.github.io/<repo>/`).
+3. `frontend/dist` is deployed to Pages; `404.html` is a copy of `index.html` so deep links
+   like `/game/123` work.
+
+One-time setup:
+
+- **Settings → Secrets and variables → Actions**: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`.
+- **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+- Custom domain: **Settings → Pages → Custom domain**, then a DNS `CNAME` record
+  (`www` → `<user>.github.io`) or `A` records for an apex domain; tick **Enforce HTTPS**.
+
+Try static mode locally:
+
+```bash
+python -m app.static_export --out frontend/public/data   # needs IGDB creds in env
+cd frontend && VITE_DATA_MODE=static npm run dev
+```
+
 ## Deployment (VPS with Docker Compose)
+
+> Alternative to the static site above, for when a live API is needed (ADR-0003).
 
 Deployment target per **ADR-0003**: one always-on small VPS (e.g. OVH) running the whole
 system as a Docker Compose stack. No managed autoscaling; the single box pays for idle,

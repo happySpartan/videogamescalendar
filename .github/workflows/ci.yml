@@ -49,6 +49,9 @@ jobs:
       - name: ADR-0002 release-date rule unit tests
         run: python tests/test_release_date_rule.py
 
+      - name: ADR-0004 static export unit tests
+        run: python tests/test_static_export.py
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

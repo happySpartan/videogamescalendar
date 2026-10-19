@@ -24,34 +24,34 @@ runtime smoke test) green; add tests only where a feature needs them.
 
 - Single consolidated backend — [ADR-0001](adr/0001-consolidate-to-single-service.md)
 - One canonical EU release date per game — [ADR-0002](adr/0002-eu-release-date-rule.md)
-- Single VPS with Docker Compose — [ADR-0003](adr/0003-vps-docker-compose-deploy.md)
-- Domain: already owned. VPS: not yet chosen.
+- Single VPS with Docker Compose — [ADR-0003](adr/0003-vps-docker-compose-deploy.md),
+  superseded for the public site by a static GitHub Pages build —
+  [ADR-0004](adr/0004-static-site-on-github-pages.md)
+- Domain: already owned.
 
-## Phase 1 — Ship v1 (live on VPS with domain + TLS) (#1)
+## Phase 1 — Ship v1 (live on GitHub Pages with domain + HTTPS) (#1)
 
-Definition of done: `https://<domain>` serves the calendar with real IGDB data, the sync
-runs on schedule, `/admin/*` is not publicly reachable.
+Switched from a VPS to a static site on GitHub Pages ([ADR-0004](adr/0004-static-site-on-github-pages.md)):
+$0, nothing to operate. Definition of done: `https://<domain>` serves the calendar with real
+IGDB data, refreshed every 6 hours by `.github/workflows/pages.yml`.
 
-1. **Pick and provision the VPS** (#4) — choose a provider (e.g. Hetzner/OVH, 2 vCPU / 4 GB),
-   create the box, SSH hardening (key-only, firewall allowing 22/80/443).
-2. **Deploy the stack** (#5) — follow the README runbook: install Docker, clone, set `.env`,
-   `docker compose up -d --build`, verify `/health` and `/releases`.
-3. **Domain + TLS** (#6) — point DNS at the VPS, put Caddy in front (automatic HTTPS), serve
-   frontend and API under the domain, set `CORS_ORIGINS` and `VITE_GAME_API_URL` to it.
-4. **Admin hardening** (#7) — keep `/admin/*` off the public proxy (or behind extra auth),
-   generate a fresh `ADMIN_TOKEN`, confirm no secrets in the repo or frontend bundle.
-5. **Manual browser pass** (#8) — verify month view, navigation, filters, search and
-   `/game/:id` deep links against the live API; fix whatever breaks.
-6. **Backups** (#9) — nightly `pg_dump` to off-box storage (data is re-syncable from IGDB, so
-   this is cheap insurance, not critical).
+1. **Static export + static frontend mode + Pages workflow** — done in the repo.
+2. **Enable Pages** — Settings → Pages → Source: GitHub Actions; merge to `main` to deploy.
+3. **Custom domain** (#6) — Settings → Pages → Custom domain + DNS record, enforce HTTPS.
+4. **Browser pass on the live site** (#8) — month view, navigation, filters, search and
+   `/game/:id` deep links with real data; fix whatever breaks.
+
+Dropped with the VPS: provisioning (#4), compose deploy (#5), admin hardening (#7) and
+database backups (#9) — the static site has no server, admin surface or database.
 
 ## Phase 2 — Calendar export (iCal) (#2)
 
 Let people subscribe to releases from Google/Apple/Outlook Calendar.
 
-1. **`GET /calendar.ics`** (#10) — iCalendar feed of upcoming releases (all-day events on the
-   EU release date; TBA games excluded), cached in Redis like `/releases`.
-2. **Filtered feeds** (#11) — same endpoint accepts `platform` / `genre` query params so a
+1. **`calendar.ics` feed** (#10) — iCalendar feed of upcoming releases (all-day events on
+   the EU release date; TBA games excluded). With the static site this is a file written by
+   the export, not an API route. (The UI already has a one-off "Export ICS" download.)
+2. **Filtered feeds** (#11) — per-platform feed files (e.g. `calendar-switch.ics`) so a
    user can subscribe to e.g. "Switch releases only".
 3. **Subscribe button in the UI** (#12) — copies the feed URL (with the active filters) and
    offers a `webcal://` link.
