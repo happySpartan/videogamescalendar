@@ -76,7 +76,17 @@ function useReleaseCalendarState() {
   const bounds = useMemo(() => getPeriodBounds(period), [period]);
   const { data, isPending, isError, error } = useAllReleases({ ...bounds, limit: 500 });
 
-  const releases: Release[] = useMemo(() => data ?? [], [data]);
+  // By day, most anticipated first (busy days show only a few games per cell).
+  const releases: Release[] = useMemo(
+    () =>
+      [...(data ?? [])].sort(
+        (a, b) =>
+          (a.release_date ?? '').slice(0, 10).localeCompare((b.release_date ?? '').slice(0, 10)) ||
+          (b.popularity ?? 0) - (a.popularity ?? 0) ||
+          a.name.localeCompare(b.name),
+      ),
+    [data],
+  );
   const games: Game[] = useMemo(() => releases.map(toGame), [releases]);
 
   const filteredReleases = useMemo(() => {

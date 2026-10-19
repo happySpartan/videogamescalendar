@@ -65,6 +65,11 @@ def _iso(ts: int | None) -> str | None:
     return datetime.fromtimestamp(ts, tz=UTC).isoformat() if ts else None
 
 
+def popularity(game: dict) -> int:
+    """IGDB interest signal (hypes + follows); orders games within a day."""
+    return int(game.get("hypes") or 0) + int(game.get("follows") or 0)
+
+
 def _release(game: dict) -> dict[str, Any]:
     """Calendar entry, same shape as one item of ``GET /releases``."""
     cover = game.get("cover") or {}
@@ -75,6 +80,7 @@ def _release(game: dict) -> dict[str, Any]:
         "release_date": _iso(game.get("first_release_date")),
         "cover_url": cover.get("url"),
         "rating": game.get("rating"),
+        "popularity": popularity(game),
         "genres": [{"id": g["id"], "name": g.get("name")} for g in game.get("genres") or []],
         "platforms": [
             {"id": p["id"], "name": p.get("name"), "abbreviation": p.get("abbreviation")}
@@ -167,7 +173,10 @@ def build_files(
         and g.get("first_release_date")
         and start_ts <= g["first_release_date"] < end_ts
     ]
-    in_window.sort(key=lambda g: (g["first_release_date"], g.get("name") or ""))
+    # By day, most anticipated first: a busy day's cell shows only a few games.
+    in_window.sort(
+        key=lambda g: (g["first_release_date"] // 86400, -popularity(g), g.get("name") or "")
+    )
 
     files: dict[str, Any] = {}
     months: dict[str, list[dict]] = defaultdict(list)

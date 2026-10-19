@@ -192,4 +192,26 @@ check(
 )
 check("Screenshot at 16:9 size", detail["screenshots"][0].split("/")[-2], "t_screenshot_big")
 
+
+# 10. Within a day, the most anticipated games come first (#8: big releases
+#     were buried behind "+N more" in alphabetical order).
+def day_game(i, name, hypes, follows):
+    g = mk(i, name, [{"date": ts(2026, 11, 20), "release_region": 1}])
+    g["hypes"], g["follows"] = hypes, follows
+    return g
+
+
+day = build_files(
+    [
+        day_game(60, "Aardvark Sim", 0, 1),
+        day_game(61, "Zelda Big", 40, 200),
+        day_game(62, "Mid", 5, 5),
+    ],
+    start,
+    end,
+    now,
+)["releases/2026-11.json"]["releases"]
+check("Day ordered by popularity", [r["name"] for r in day], ["Zelda Big", "Mid", "Aardvark Sim"])
+check("Popularity exported", [r["popularity"] for r in day], [240, 10, 1])
+
 print(f"\nAll {passed} checks passed.")

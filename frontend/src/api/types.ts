@@ -27,6 +27,8 @@ export interface Release {
   release_date: string | null;
   cover_url: string | null;
   rating?: number;
+  /** IGDB hypes + follows; orders games within a day (most anticipated first). */
+  popularity?: number;
   genres: GenreRef[];
   platforms: PlatformRef[];
 }

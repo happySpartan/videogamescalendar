@@ -38,8 +38,10 @@ IGDB data, refreshed every 6 hours by `.github/workflows/pages.yml`.
 1. **Static export + static frontend mode + Pages workflow** — done in the repo.
 2. **Enable Pages** — Settings → Pages → Source: GitHub Actions; merge to `main` to deploy.
 3. **Custom domain** (#6) — Settings → Pages → Custom domain + DNS record, enforce HTTPS.
-4. **Browser pass on the live site** (#8) — month view, navigation, filters, search and
-   `/game/:id` deep links with real data; fix whatever breaks.
+4. **Browser pass on the live site** (#8) — done against the deployed Pages build (real
+   IGDB data): month/week views, >500-release months, search, filters, game pages, feeds.
+   It found the dead "+N more" badge and big releases buried behind indie titles; both
+   fixed (day list dialog, days ordered by IGDB hypes + follows).
 
 Dropped with the VPS: provisioning (#4), compose deploy (#5), admin hardening (#7) and
 database backups (#9) — the static site has no server, admin surface or database.

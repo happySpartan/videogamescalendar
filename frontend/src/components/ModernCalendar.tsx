@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Paper, Title, Group, Badge, Image, Tooltip, Box, Stack, Grid, Text, Loader, Center, Alert, UnstyledButton } from '@mantine/core';
+import { Container, Paper, Title, Group, Badge, Image, Tooltip, Box, Stack, Grid, Text, Loader, Center, Alert, UnstyledButton, Modal, ScrollArea } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import type { Release } from '../api/types';
 import { getWeekStart, useReleaseCalendar } from '../hooks/useReleaseCalendar';
@@ -16,6 +16,8 @@ const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 /** Month grid (or one week row) of releases, driven by the shared period, filters and search. */
 const ModernCalendar: React.FC = () => {
   const { periods: period, filteredReleases, loading, isError, error, shiftPeriod } = useReleaseCalendar();
+  // The day whose full list is open ("+N more"): a cell shows only 4 games.
+  const [openDay, setOpenDay] = useState<{ date: Date; games: Release[] } | null>(null);
   const year = period.date.getFullYear();
   const month = period.date.getMonth();
 
@@ -117,7 +119,16 @@ const ModernCalendar: React.FC = () => {
                           ))}
                         </Box>
                         {day.games.length > 4 && (
-                          <Badge className={classes.moreGamesBadge} size="xs" variant="filled" color="blue">
+                          <Badge
+                            component="button"
+                            type="button"
+                            onClick={() => setOpenDay({ date: day.date, games: day.games })}
+                            className={classes.moreGamesBadge}
+                            size="xs"
+                            variant="filled"
+                            color="blue"
+                            style={{ cursor: 'pointer' }}
+                          >
                             +{day.games.length - 4} more
                           </Badge>
                         )}
@@ -133,6 +144,39 @@ const ModernCalendar: React.FC = () => {
           ))
         )}
       </Paper>
+      <Modal
+        opened={openDay !== null}
+        onClose={() => setOpenDay(null)}
+        title={
+          openDay &&
+          `${openDay.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · ${openDay.games.length} releases`
+        }
+        size="lg"
+        scrollAreaComponent={ScrollArea.Autosize}
+      >
+        <Stack gap={4}>
+          {openDay?.games.map((game) => (
+            <UnstyledButton key={game.id} component={Link} to={`/game/${game.id}`} className={classes.dayListItem}>
+              <Group gap="sm" wrap="nowrap">
+                <Image
+                  src={game.cover_url?.replace('t_cover_big', 't_cover_small') || 'https://placehold.co/45x64?text=%3F'}
+                  w={36}
+                  h={48}
+                  radius="xs"
+                  fit="cover"
+                  alt=""
+                />
+                <div style={{ minWidth: 0 }}>
+                  <Text fw={600} size="sm" truncate>{game.name}</Text>
+                  <Text size="xs" c="dimmed" truncate>
+                    {game.platforms.map((p) => p.abbreviation || p.name).join(' · ')}
+                  </Text>
+                </div>
+              </Group>
+            </UnstyledButton>
+          ))}
+        </Stack>
+      </Modal>
     </Container>
   );
 };
