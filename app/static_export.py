@@ -9,6 +9,7 @@ writes plain JSON files the frontend reads in static mode:
     <out>/platforms.json             [{id, name, abbreviation, game_count}]
     <out>/releases/YYYY-MM.json      {"releases": [...]} for that month
     <out>/games/<igdb_id>.json       game detail
+    <out>/search.json                name index for search suggestions
     <out>/calendar.ics               iCalendar feed, all platforms
     <out>/calendars/platform-<id>.ics  iCalendar feed per platform
 
@@ -203,6 +204,17 @@ def build_files(
         key = cursor.strftime("%Y-%m")
         files[f"releases/{key}.json"] = {"releases": months.get(key, [])}
         cursor = _month_start(cursor.year, cursor.month + 1)
+
+    # Search suggestions: every exported game, most anticipated first.
+    files["search.json"] = [
+        {
+            "id": g["id"],
+            "name": g.get("name") or "",
+            "release_date": _iso(g.get("first_release_date")),
+            "cover_url": (g.get("cover") or {}).get("url"),
+        }
+        for g in sorted(in_window, key=lambda g: (-popularity(g), g.get("name") or ""))
+    ]
 
     files["genres.json"] = sorted(
         ({**g, "game_count": genre_counts[gid]} for gid, g in genres.items()),

@@ -38,15 +38,9 @@ const Layout: React.FC = () => {
   return (
     <ReleaseCalendarProvider>
       <AppShell
-        padding={active === 'Calendar' ? 0 : 'md'}
-        navbar={{ width: 60, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
-        header={{ height: { base: 112, md: 60 } }}
-        styles={{
-          main: {
-            background:
-              active === 'Calendar' ? 'linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%)' : '#f7f8fa',
-          },
-        }}
+        padding={0}
+        navbar={{ width: 64, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
+        header={{ height: 60 }}
       >
         <AppShell.Header>
           <MainHeader navOpened={navOpened} onToggleNav={toggleNav} />

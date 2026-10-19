@@ -1,243 +1,69 @@
-/* Dark Gaming Header Theme */
 .header {
-  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  position: relative;
-  overflow: hidden;
-  height: 100%;
-  padding: 0 var(--mantine-spacing-md);
-}
-
-.header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg,
-    rgba(139, 69, 255, 0.05) 0%,
-    rgba(255, 0, 255, 0.03) 50%,
-    rgba(0, 255, 255, 0.05) 100%);
-  pointer-events: none;
-}
-
-.inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   height: 100%;
-  position: relative;
-  z-index: 1;
+  padding: 0 20px;
+  background: var(--vgc-surface);
+  border-bottom: 1px solid var(--vgc-border);
 }
 
-.leftSection {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.titleSection {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: none;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--vgc-text);
+  text-decoration: none;
 }
 
-.titleSection h2 {
-  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+.brandIcon {
+  color: var(--vgc-accent);
 }
 
-.searchSection {
-  flex: 1 1 auto;
-  min-width: 120px;
-  max-width: 320px;
-}
-
-.centerGroup {
-  flex: none;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 4px 8px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.centerGroup button {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-  border-radius: 12px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  backdrop-filter: blur(10px);
-}
-
-.centerGroup button:hover {
-  background: rgba(139, 69, 255, 0.2) !important;
-  border-color: rgba(139, 69, 255, 0.4) !important;
-  color: rgba(255, 255, 255, 0.95) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(139, 69, 255, 0.2);
-}
-
-.centerGroup button:disabled {
-  opacity: 0.4 !important;
-  cursor: not-allowed !important;
-}
-
-.periodTitle {
-  color: rgba(255, 255, 255, 0.9) !important;
-  font-weight: 600 !important;
-  font-size: 15px !important;
-  min-width: 170px;
-  text-align: center;
+.brandName {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
-.rightSection {
+.search {
+  flex: 1 1 auto;
+  max-width: 440px;
+  min-width: 0;
+  margin-left: 16px;
+}
+
+.actions {
+  margin-left: auto;
   flex: none;
-  justify-content: flex-end;
 }
 
-/* Segmented Control Dark Theme */
-.rightSection [data-mantine-component="SegmentedControl"] {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 4px !important;
-}
-
-.rightSection [data-mantine-component="SegmentedControl"] button {
-  background: transparent !important;
-  color: rgba(255, 255, 255, 0.7) !important;
-  border: none !important;
-  border-radius: 8px !important;
-  transition: all 0.3s ease !important;
-  font-weight: 500 !important;
-}
-
-.rightSection [data-mantine-component="SegmentedControl"] button:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-.rightSection [data-mantine-component="SegmentedControl"] button[data-active="true"] {
-  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%) !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(139, 69, 255, 0.4) !important;
-}
-
-/* Export Button */
-.rightSection button[data-variant="filled"] {
-  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%) !important;
-  border: none !important;
-  border-radius: 12px !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 0 20px rgba(139, 69, 255, 0.3);
-}
-
-.rightSection button[data-variant="filled"]:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 25px rgba(139, 69, 255, 0.4) !important;
-  background: linear-gradient(135deg, #a855ff 0%, #ff33ff 100%) !important;
-}
-
-/* Link styles for dark theme */
-.link {
-  display: block;
-  line-height: 1;
-  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
-  border-radius: 12px;
-  text-decoration: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: var(--mantine-font-size-sm);
-  font-weight: 500;
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.link:hover {
-  background: rgba(139, 69, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-  transform: translateX(4px);
-}
-
-.link[data-active] {
-  background: linear-gradient(135deg, #8b45ff 0%, #ff00ff 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 15px rgba(139, 69, 255, 0.3);
-}
-
-/* Responsive: two rows below md (Layout sets the header to 112px there). */
-@media (max-width: 991px) {
-  .inner {
-    flex-wrap: wrap;
-    align-content: center;
-    row-gap: 8px;
-    padding: 8px 0;
-  }
-
-  .leftSection {
-    flex-basis: 100%;
-  }
-
-  .searchSection {
-    max-width: none;
-  }
-
-  .centerGroup {
-    flex: 1 1 auto;
-    min-width: 0;
-    justify-content: flex-start;
-  }
-}
-
-/* Phones: icon-only action buttons so the second row fits. */
+/* Phones: icon-only brand and actions so search keeps the space. */
 @media (max-width: 575px) {
   .header {
-    padding: 0 var(--mantine-spacing-xs);
+    gap: 10px;
+    padding: 0 12px;
   }
 
-  .titleSection h2 {
+  .brandName {
     display: none;
   }
 
-  .inner {
-    column-gap: 6px;
+  .search {
+    margin-left: 0;
   }
 
-  .centerGroup {
-    min-width: 0;
-    padding: 2px 4px;
-    gap: 2px;
-  }
-
-  .periodTitle {
-    min-width: 0;
-    font-size: 13px !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .rightSection {
-    gap: 4px;
-  }
-
-  .rightSection :global(.mantine-Button-root) {
-    padding-inline: 8px;
-  }
-
-  .rightSection :global(.mantine-Button-label) {
+  .actions :global(.mantine-Button-label) {
     display: none;
   }
 
-  .rightSection :global(.mantine-Button-section) {
+  .actions :global(.mantine-Button-section) {
     margin: 0;
+  }
+
+  .actions :global(.mantine-Button-root) {
+    padding-inline: 9px;
   }
 }
