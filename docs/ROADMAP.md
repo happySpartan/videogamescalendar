@@ -44,17 +44,17 @@ IGDB data, refreshed every 6 hours by `.github/workflows/pages.yml`.
 Dropped with the VPS: provisioning (#4), compose deploy (#5), admin hardening (#7) and
 database backups (#9) — the static site has no server, admin surface or database.
 
-## Phase 2 — Calendar export (iCal) (#2)
+## Phase 2 — Calendar export (iCal) (#2) — done
 
 Let people subscribe to releases from Google/Apple/Outlook Calendar.
 
-1. **`calendar.ics` feed** (#10) — iCalendar feed of upcoming releases (all-day events on
-   the EU release date; TBA games excluded). With the static site this is a file written by
-   the export, not an API route. (The UI already has a one-off "Export ICS" download.)
-2. **Filtered feeds** (#11) — per-platform feed files (e.g. `calendar-switch.ics`) so a
-   user can subscribe to e.g. "Switch releases only".
-3. **Subscribe button in the UI** (#12) — copies the feed URL (with the active filters) and
-   offers a `webcal://` link.
+1. **`calendar.ics` feed** (#10) — written by the static export: all-day events on the EU
+   release date for upcoming releases plus the last 30 days, a stable per-game UID so moved
+   dates update in place, `REFRESH-INTERVAL` of 6 hours to match the export cadence.
+2. **Per-platform feeds** (#11) — `calendars/platform-<id>.ics` for every platform in
+   `platforms.json`.
+3. **Subscribe button** (#12) — header dialog (static build only): pick a platform, then
+   open the `webcal://` link, add to Google Calendar, or copy the feed URL.
 
 ## Phase 3 — Richer game pages (#3)
 

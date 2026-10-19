@@ -16,7 +16,13 @@ const BASE_URL =
   'http://localhost:8000';
 
 // Static mode (ADR-0004): read pre-built JSON from <base>/data instead of the API.
-const STATIC_DATA = import.meta.env.VITE_DATA_MODE === 'static';
+export const STATIC_DATA = import.meta.env.VITE_DATA_MODE === 'static';
+
+/** Absolute URL of a calendar feed written by the static export (Phase 2). */
+export function calendarFeedUrl(platformId?: number): string {
+  const file = platformId ? `calendars/platform-${platformId}.ics` : 'calendar.ics';
+  return new URL(`${import.meta.env.BASE_URL}data/${file}`, window.location.origin).href;
+}
 
 export class ApiError extends Error {
   status: number;

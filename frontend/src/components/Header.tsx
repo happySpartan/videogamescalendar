@@ -5,6 +5,8 @@ import { useDisclosure } from '@mantine/hooks';
 import classes from '../styles/Header.module.css';
 import { generateICS, getWeekBounds } from '../utils/calendar.utils';
 import SearchBar from './SearchBar';
+import SubscribeButton from './SubscribeButton';
+import { STATIC_DATA } from '../api/client';
 import { useReleaseCalendar } from '../hooks/useReleaseCalendar';
 
 interface HeaderProps {
@@ -182,6 +184,9 @@ const MainHeader: React.FC<HeaderProps> = ({
           >
             Export ICS
           </Button>
+
+          {/* Feeds exist only in the static build (ADR-0004), not behind the API. */}
+          {STATIC_DATA && <SubscribeButton />}
         </div>
 
         <Burger
