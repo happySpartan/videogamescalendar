@@ -31,7 +31,7 @@ product. Updated the moment a term resolves.
 
 - **EU release date** — the single canonical date a Game appears on the calendar.
   Defined by the **release-date rule**: prefer an IGDB entry whose region is Europe
-  (1); among several EU dates prefer the one whose human-readable label/note matches
+  (1) with an exact-day date (not just a month/quarter/year); among several EU dates prefer the one whose human-readable label/note matches
   the announced date, else the earliest. Fall back to the Worldwide (8) region under
   the same rule. With no dated entry at all, the Game is **TBA**.
   _Avoid_: "release_date"/"first_release_date" as two different columns — there is

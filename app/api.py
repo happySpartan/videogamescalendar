@@ -346,10 +346,14 @@ async def get_genres(db: AsyncSession = Depends(get_db)):
 
     async def fetch_genres():
         genres = (
-            await db.execute(
-                select(Genre).options(selectinload(Genre.games)).order_by(Genre.name)
+            (
+                await db.execute(
+                    select(Genre).options(selectinload(Genre.games)).order_by(Genre.name)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return [
             {
                 "id": genre.id,
@@ -371,10 +375,14 @@ async def get_platforms(db: AsyncSession = Depends(get_db)):
 
     async def fetch_platforms():
         platforms = (
-            await db.execute(
-                select(Platform).options(selectinload(Platform.games)).order_by(Platform.name)
+            (
+                await db.execute(
+                    select(Platform).options(selectinload(Platform.games)).order_by(Platform.name)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return [
             {
                 "id": platform.id,

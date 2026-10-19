@@ -16,3 +16,8 @@ the grid). Status (released/upcoming/TBA) is derived from that single date.
 uses the note/label to pick the actually-announced date when present. The Worldwide fallback
 keeps well-known titles on the calendar when no EU row exists, without making it a strict
 EU-or-nothing product. TBA keeps undated games visible without polluting the grid.
+
+**Amendment (2026-10)**: only exact-day IGDB dates count. Month/quarter/year/TBD dates
+("Dec 2026", "Q1 2027", "2026") are stored by IGDB as the period's last day, which piled
+hundreds of games onto Dec 31 in the first live export; they are now skipped like
+cancelled ones, so such a game falls back to Worldwide or becomes TBA.

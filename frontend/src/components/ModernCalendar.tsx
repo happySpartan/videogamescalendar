@@ -16,7 +16,7 @@ const ModernCalendar: React.FC = () => {
   const lastDay = new Date(year, month + 1, 0).getDate();
   const monthEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
 
-  const { data, isPending, isError, error } = useReleases({ from: monthStart, to: monthEnd, limit: 300 });
+  const { data, isPending, isError, error } = useReleases({ from: monthStart, to: monthEnd, limit: 500 });
   const releases: Release[] = data?.releases ?? [];
 
   // Build the calendar grid (weeks of day-cells) for the current month.
