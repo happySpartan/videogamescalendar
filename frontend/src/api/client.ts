@@ -77,6 +77,17 @@ class ApiClient {
     );
   }
 
+  /** Every release matching ``params``, following pagination (``page`` is ignored). */
+  async getAllReleases(params: ReleaseQueryParams = {}): Promise<Release[]> {
+    const first = await this.getReleases({ ...params, page: 1 });
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(first.pagination.pages - 1, 0) }, (_, i) =>
+        this.getReleases({ ...params, page: i + 2 }),
+      ),
+    );
+    return [first, ...rest].flatMap((r) => r.releases);
+  }
+
   getRelease(id: number | string): Promise<Release> {
     return this.getJSON<Release>(STATIC_DATA ? `/games/${id}.json` : `/games/${id}`);
   }

@@ -2,7 +2,7 @@
 // These replace the homegrown in-memory caching in the old service layer.
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import apiClient from '../api/client';
-import type { ReleaseQueryParams, ReleasesResponse } from '../api/types';
+import type { Release, ReleaseQueryParams, ReleasesResponse } from '../api/types';
 
 const FIVE_MIN = 5 * 60 * 1000;
 const THIRTY_MIN = 30 * 60 * 1000;
@@ -12,6 +12,16 @@ export function useReleases(params: ReleaseQueryParams = {}) {
   return useQuery<ReleasesResponse>({
     queryKey: ['releases', params],
     queryFn: () => apiClient.getReleases(params),
+    staleTime: FIVE_MIN,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** All releases in a window, every page combined (the month calendar shows them all). */
+export function useAllReleases(params: Omit<ReleaseQueryParams, 'page'> = {}) {
+  return useQuery<Release[]>({
+    queryKey: ['releases', 'all', params],
+    queryFn: () => apiClient.getAllReleases(params),
     staleTime: FIVE_MIN,
     placeholderData: keepPreviousData,
   });
