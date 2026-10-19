@@ -99,8 +99,8 @@ def _detail(game: dict) -> dict[str, Any]:
         "aggregated_rating": game.get("aggregated_rating"),
         "aggregated_rating_count": game.get("aggregated_rating_count"),
         "screenshots": [s["url"] for s in game.get("screenshots") or [] if s.get("url")],
-        "videos": None,
-        "websites": None,
+        "videos": game.get("videos") or [],
+        "websites": game.get("websites") or [],
         "companies": [
             {"id": c["id"], "name": c.get("name"), "description": c.get("description")}
             for c in companies

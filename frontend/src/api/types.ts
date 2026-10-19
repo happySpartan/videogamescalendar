@@ -31,6 +31,28 @@ export interface Release {
   platforms: PlatformRef[];
 }
 
+export interface GameVideo {
+  /** YouTube video id. */
+  video_id: string;
+  name?: string | null;
+}
+
+export interface GameWebsite {
+  url: string;
+  /** Store name ("Steam", "PlayStation Store", ...) or null for other sites. */
+  store: string | null;
+}
+
+/** GET /games/{id} (or games/<id>.json in static mode). */
+export interface GameDetail extends Release {
+  summary?: string | null;
+  storyline?: string | null;
+  screenshots?: string[] | null;
+  videos?: GameVideo[] | null;
+  websites?: GameWebsite[] | null;
+  companies?: CompanyRef[];
+}
+
 export interface ReleasesResponse {
   releases: Release[];
   pagination: {

@@ -28,6 +28,7 @@ import logging
 import re
 import time
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import httpx
 
@@ -50,6 +51,25 @@ EXACT_DAY_CATEGORY = 0
 IMPRECISE_HUMAN = re.compile(r"^(TBD|\d{4}|Q[1-4] \d{4}|[A-Za-z]{3,9} \d{4})$")
 
 IMAGE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg"
+# Screenshots are 16:9; the cover size above would crop them to a portrait box.
+SCREENSHOT_URL = "https://images.igdb.com/igdb/image/upload/t_screenshot_big/{image_id}.jpg"
+
+# Store links, recognised by host. The URL is used instead of IGDB's website
+# category/type enum, which IGDB has been migrating.
+STORE_HOSTS: dict[str, str] = {
+    "store.steampowered.com": "Steam",
+    "store.playstation.com": "PlayStation Store",
+    "www.xbox.com": "Xbox",
+    "www.microsoft.com": "Microsoft Store",
+    "apps.microsoft.com": "Microsoft Store",
+    "www.nintendo.com": "Nintendo eShop",
+    "store.epicgames.com": "Epic Games Store",
+    "www.epicgames.com": "Epic Games Store",
+    "www.gog.com": "GOG",
+    "itch.io": "itch.io",
+    "apps.apple.com": "App Store",
+    "play.google.com": "Google Play",
+}
 
 AUTH_URL = "https://id.twitch.tv/oauth2/token"
 API_URL = "https://api.igdb.com/v4"
@@ -61,6 +81,7 @@ GAME_FIELDS: str = (
     "rating,rating_count,total_rating,total_rating_count,"
     "aggregated_rating,aggregated_rating_count,"
     "cover.image_id,screenshots.image_id,"
+    "videos.video_id,videos.name,websites.url,"
     "genres.id,genres.name,"
     "platforms.id,platforms.name,platforms.abbreviation,"
     "involved_companies.company.id,involved_companies.company.name,"
@@ -73,6 +94,27 @@ GAME_FIELDS: str = (
 
 # Fields for the release_dates endpoint (region + human label feed ADR-0002).
 RELEASE_DATE_FIELDS: str = "id,game,date,release_region,human,m,y,platform,category,status,checksum"
+
+
+def store_name(url: str) -> str | None:
+    """Store a link points to (e.g. "Steam"), or None for any other website."""
+    host = urlparse(url).netloc.lower()
+    if host.endswith(".itch.io"):
+        return "itch.io"
+    return STORE_HOSTS.get(host)
+
+
+def _websites(items: Any) -> list[dict]:
+    """IGDB websites as {url, store}; store is None for non-store links."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    for it in items or []:
+        url = it.get("url") if isinstance(it, dict) else None
+        # Only real web links: anything else would render as a broken link.
+        if url and url.startswith(("https://", "http://")) and url not in seen:
+            seen.add(url)
+            out.append({"url": url, "store": store_name(url)})
+    return out
 
 
 def _image_url(image_id: str | None) -> str | None:
@@ -348,9 +390,15 @@ class IGDBService:
             (g.get("cover") or {}).get("image_id") if isinstance(g.get("cover"), dict) else None
         )
         screenshots = [
-            {"url": _image_url(s.get("image_id"))}
+            {"url": SCREENSHOT_URL.format(image_id=s["image_id"])}
             for s in (g.get("screenshots") or [])
             if isinstance(s, dict) and s.get("image_id")
+        ]
+        # YouTube trailers / gameplay videos.
+        videos = [
+            {"video_id": v["video_id"], "name": v.get("name")}
+            for v in (g.get("videos") or [])
+            if isinstance(v, dict) and v.get("video_id")
         ]
 
         # Canonical release date per ADR-0002: prefer a usable EU date, then
@@ -378,6 +426,8 @@ class IGDBService:
             "aggregated_rating_count": g.get("aggregated_rating_count"),
             "cover": {"url": _image_url(cover_image)} if cover_image else None,
             "screenshots": screenshots,
+            "videos": videos,
+            "websites": _websites(g.get("websites")),
             "genres": _ids(g.get("genres")),
             "platforms": [
                 {
