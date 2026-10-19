@@ -1,5 +1,7 @@
 # Progress & Outstanding Work
 
+> Product goals and the phased plan live in [ROADMAP.md](ROADMAP.md).
+
 Living status of the Video Game Calendar project: **open / in-flight work first**, then a
 concise **archive** of what's done. Facts that are finished and stable belong in
 [README](../README.md) / ADRs, not here.
