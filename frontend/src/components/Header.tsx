@@ -1,199 +1,93 @@
 import { useCallback, memo } from 'react';
-import { Container, Group, Title, SegmentedControl, Button, Burger } from '@mantine/core';
-import { IconCalendar, IconDownload, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { useDisclosure } from '@mantine/hooks';
+import { ActionIcon, Burger, Button, Group, SegmentedControl, Title, Tooltip } from '@mantine/core';
+import { IconCalendar, IconChevronLeft, IconChevronRight, IconDownload } from '@tabler/icons-react';
 import classes from '../styles/Header.module.css';
-import { generateICS, getWeekBounds } from '../utils/calendar.utils';
+import { formatPeriodTitle, generateICS } from '../utils/calendar.utils';
 import SearchBar from './SearchBar';
-import { useReleaseCalendar } from '../hooks/useReleaseCalendar';
+import SubscribeButton from './SubscribeButton';
+import { STATIC_DATA } from '../api/client';
+import { getPeriodBounds, useReleaseCalendar, type PeriodType } from '../hooks/useReleaseCalendar';
 
 interface HeaderProps {
-  onViewChange: (value: string) => void;
-  currentView: string;
-  currentPeriod: { type: 'month' | 'week' | 'day'; date: Date };
-  onPeriodChange: (period: { type: 'month' | 'week' | 'day'; date: Date }) => void;
-  games: any[];
-  onSearch: (query: string) => void;
+  navOpened: boolean;
+  onToggleNav: () => void;
 }
 
-const MainHeader: React.FC<HeaderProps> = ({
-  onViewChange,
-  currentView,
-}) => {
-  const [opened, { toggle }] = useDisclosure(false);
+/**
+ * App header: search, period navigation and month/week toggle drive the shared
+ * calendar state (useReleaseCalendar), so they act on whichever view is open.
+ * Desktop is one 60px row; below `md` it is two rows (see Layout header height).
+ */
+const MainHeader: React.FC<HeaderProps> = ({ navOpened, onToggleNav }) => {
   const {
     periods: period,
-    games,
     filteredGames,
-    loading,
     searchQuery,
     setSearchQuery,
     changePeriod,
+    shiftPeriod,
   } = useReleaseCalendar();
 
-  // Function to handle search
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
-  }, [setSearchQuery]);
-
-  // Function to handle exporting to ICS
   const handleExportICS = useCallback(() => {
-    const filename = period.type === 'month'
-      ? `game-releases-${period.date.getFullYear()}-${period.date.getMonth() + 1}`
-      : `game-releases-week-${getWeekNumber(period.date)}`;
-
-    generateICS(filteredGames.length > 0 ? filteredGames : games, filename);
-  }, [period, games, filteredGames]);
-
-  // Helper to get week number
-  const getWeekNumber = (date: Date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  };
-
-  // Navigate to previous period
-  const goToPrevious = useCallback(() => {
-    if (loading) return;
-    const newDate = new Date(period.date);
-    if (period.type === 'month') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else if (period.type === 'week') {
-      newDate.setDate(newDate.getDate() - 7);
-    } else if (period.type === 'day') {
-      if (newDate.getDate() === 1) {
-        newDate.setMonth(newDate.getMonth() - 1);
-        newDate.setDate(new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate());
-      } else {
-        newDate.setDate(newDate.getDate() - 1);
-      }
-    }
-    changePeriod({ type: period.type, date: newDate });
-  }, [period, changePeriod, loading]);
-
-  // Navigate to next period
-  const goToNext = useCallback(() => {
-    if (loading) return;
-    const newDate = new Date(period.date);
-    if (period.type === 'month') {
-      newDate.setMonth(newDate.getMonth() + 1);
-    } else if (period.type === 'week') {
-      newDate.setDate(newDate.getDate() + 7);
-    } else if (period.type === 'day') {
-      const lastDayOfMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
-      if (newDate.getDate() >= lastDayOfMonth) {
-        newDate.setMonth(newDate.getMonth() + 1);
-        newDate.setDate(1);
-      } else {
-        newDate.setDate(newDate.getDate() + 1);
-      }
-    }
-    changePeriod({ type: period.type, date: newDate });
-  }, [period, changePeriod, loading]);
-
-  // Get formatted display title
-  const getDisplayTitle = useCallback(() => {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
-
-    if (period.type === 'month') {
-      return `${months[period.date.getMonth()]} ${period.date.getFullYear()}`;
-    } else if (period.type === 'week') {
-      const weekNumber = getWeekNumber(period.date);
-      return `Week ${weekNumber}, ${period.date.getFullYear()}`;
-    } else if (period.type === 'day') {
-      return `${months[period.date.getMonth()]} ${period.date.getFullYear()}`;
-    }
-  }, [period]);
-
-  const handlePeriodTypeChange = useCallback((value: string) => {
-    if (loading) return;
-    changePeriod({
-      type: value as 'month' | 'week' | 'day',
-      date: period.date,
-    });
-  }, [changePeriod, period.date, loading]);
-
-  // Determine which view options to show based on the current view
-  const viewOptions = currentView === 'Calendar'
-    ? [
-        { label: 'Month', value: 'month' },
-        { label: 'Week', value: 'week' },
-      ]
-    : [
-        { label: 'Day', value: 'day' },
-        { label: 'Week', value: 'week' },
-      ];
+    generateICS(filteredGames, `game-releases-${getPeriodBounds(period).from}`);
+  }, [period, filteredGames]);
 
   return (
     <header className={classes.header}>
-      <Container size="xl" className={classes.inner}>
-        <div className={classes.leftSection}>
-          <div className={classes.titleSection}>
-            <IconCalendar size={30} style={{ color: 'var(--mantine-color-blue-6)' }} />
-            <Title order={2} ml="xs" style={{ whiteSpace: 'nowrap' }}>Game Releases</Title>
-          </div>
-
+      <div className={classes.inner}>
+        <Group gap="xs" wrap="nowrap" className={classes.leftSection}>
+          <Burger opened={navOpened} onClick={onToggleNav} hiddenFrom="sm" size="sm" aria-label="Toggle navigation" />
+          <Group gap={6} wrap="nowrap" className={classes.titleSection}>
+            <IconCalendar size={26} style={{ color: 'var(--mantine-color-violet-5)' }} />
+            <Title order={2} size="h3" style={{ whiteSpace: 'nowrap' }}>
+              Game Releases
+            </Title>
+          </Group>
           <div className={classes.searchSection}>
-            <SearchBar onSearch={handleSearch} />
+            <SearchBar value={searchQuery} onSearch={setSearchQuery} />
           </div>
-        </div>
+        </Group>
 
-        <div className={classes.centerGroup}>
-          <Button
-            variant="subtle"
-            onClick={goToPrevious}
-            leftSection={<IconChevronLeft size={16} />}
-            disabled={loading}
-          >
-            Previous
-          </Button>
+        <Group gap="xs" wrap="nowrap" className={classes.centerGroup}>
+          <ActionIcon variant="subtle" onClick={() => shiftPeriod(-1)} aria-label={`Previous ${period.type}`}>
+            <IconChevronLeft size={18} />
+          </ActionIcon>
+          <Title order={3} className={classes.periodTitle}>
+            {formatPeriodTitle(period)}
+          </Title>
+          <ActionIcon variant="subtle" onClick={() => shiftPeriod(1)} aria-label={`Next ${period.type}`}>
+            <IconChevronRight size={18} />
+          </ActionIcon>
+        </Group>
 
-          <Title order={3} className={classes.periodTitle}>{getDisplayTitle()}</Title>
-
-          <Button
-            variant="subtle"
-            onClick={goToNext}
-            rightSection={<IconChevronRight size={16} />}
-            disabled={loading}
-          >
-            Next
-          </Button>
-        </div>
-
-        <div className={classes.rightSection}>
+        <Group gap="xs" wrap="nowrap" className={classes.rightSection}>
           <SegmentedControl
             value={period.type}
-            onChange={handlePeriodTypeChange}
-            data={viewOptions}
-            size="sm"
-            disabled={loading}
+            onChange={(value) => changePeriod({ type: value as PeriodType, date: period.date })}
+            data={[
+              { label: 'Month', value: 'month' },
+              { label: 'Week', value: 'week' },
+            ]}
+            size="xs"
           />
+          <Tooltip label="Download the releases shown as an .ics file">
+            <Button
+              leftSection={<IconDownload size={16} />}
+              variant="filled"
+              size="xs"
+              onClick={handleExportICS}
+              disabled={filteredGames.length === 0}
+            >
+              Export
+            </Button>
+          </Tooltip>
 
-          <Button
-            ml="md"
-            leftSection={<IconDownload size={16} />}
-            variant="filled"
-            color="blue"
-            onClick={handleExportICS}
-          >
-            Export ICS
-          </Button>
-        </div>
-
-        <Burger
-          opened={opened}
-          onClick={toggle}
-          hiddenFrom="sm"
-          size="sm"
-        />
-      </Container>
+          {/* Feeds exist only in the static build (ADR-0004), not behind the API. */}
+          {STATIC_DATA && <SubscribeButton />}
+        </Group>
+      </div>
     </header>
   );
 };
 
-// Use memo to prevent unnecessary re-renders
 export default memo(MainHeader);

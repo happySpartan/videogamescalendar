@@ -9,6 +9,8 @@ writes plain JSON files the frontend reads in static mode:
     <out>/platforms.json             [{id, name, abbreviation, game_count}]
     <out>/releases/YYYY-MM.json      {"releases": [...]} for that month
     <out>/games/<igdb_id>.json       game detail
+    <out>/calendar.ics               iCalendar feed, all platforms
+    <out>/calendars/platform-<id>.ics  iCalendar feed per platform
 
 Game ids in the exported files are IGDB ids (there is no database id).
 
@@ -24,12 +26,13 @@ import json
 import logging
 import os
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from app.ical import build_calendar
 from app.sync.igdb_client import IGDBService
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,8 @@ PAGE_DELAY_SECONDS = 0.6
 # The canonical EU date can be later than IGDB's earliest worldwide
 # first_release_date, so fetch a little before the window starts.
 FETCH_PADDING_SECONDS = 60 * 86400
+# Calendar feeds carry upcoming releases plus this much recent history.
+FEED_HISTORY = timedelta(days=30)
 
 
 def _month_start(year: int, month: int) -> datetime:
@@ -140,8 +145,20 @@ async def fetch_games(igdb: IGDBService, start: datetime, end: datetime) -> list
     return games
 
 
-def build_files(games: list[dict], start: datetime, end: datetime, now: datetime) -> dict[str, Any]:
-    """Map of relative path -> JSON payload for every exported file."""
+def build_files(
+    games: list[dict],
+    start: datetime,
+    end: datetime,
+    now: datetime,
+    site_url: str | None = None,
+    platform_catalogue: list[dict] | None = None,
+) -> dict[str, Any]:
+    """Map of relative path -> payload (JSON value, or ``str`` for .ics) per file.
+
+    ``platform_catalogue`` (IGDB's full platform list) gets a feed per platform
+    even when none of its games is in the window, so a subscribed feed URL
+    stays valid (an empty calendar) instead of turning into a 404.
+    """
     start_ts, end_ts = start.timestamp(), end.timestamp()
     in_window = [
         g
@@ -186,12 +203,25 @@ def build_files(games: list[dict], start: datetime, end: datetime, now: datetime
         ({**p, "game_count": platform_counts[pid]} for pid, p in platforms.items()),
         key=lambda p: p.get("name") or "",
     )
+    # Calendar feeds: recent + upcoming releases, all platforms and per platform.
+    feed_from = (now - FEED_HISTORY).date().isoformat()
+    feed = [r for releases in months.values() for r in releases if r["release_date"] >= feed_from]
+    files["calendar.ics"] = build_calendar(feed, "Video game releases", now, site_url)
+    feed_platforms = {p["id"]: p for p in platform_catalogue or [] if p.get("id")}
+    feed_platforms.update(platforms)
+    for pid, platform in feed_platforms.items():
+        on_platform = [r for r in feed if any(p["id"] == pid for p in r["platforms"])]
+        files[f"calendars/platform-{pid}.ics"] = build_calendar(
+            on_platform, f"Video game releases — {platform.get('name')}", now, site_url
+        )
+
     files["meta.json"] = {
         "generated_at": now.isoformat(),
         "from": start.date().isoformat(),
         "to": end.date().isoformat(),
         "game_count": len(in_window),
         "months": {k: len(v) for k, v in sorted(months.items())},
+        "feed_count": len(feed),
     }
     return files
 
@@ -200,10 +230,16 @@ def write_files(out: Path, files: dict[str, Any]) -> None:
     for rel, payload in files.items():
         path = out / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        if isinstance(payload, str):
+            # newline="" keeps the CRLF line endings iCalendar requires.
+            path.write_text(payload, encoding="utf-8", newline="")
+        else:
+            path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 
 
-async def run(out: Path, months_back: int, months_ahead: int) -> dict[str, Any]:
+async def run(
+    out: Path, months_back: int, months_ahead: int, site_url: str | None = None
+) -> dict[str, Any]:
     now = datetime.now(UTC)
     start, end = export_window(now, months_back, months_ahead)
     igdb = IGDBService(
@@ -211,7 +247,8 @@ async def run(out: Path, months_back: int, months_ahead: int) -> dict[str, Any]:
         client_secret=os.getenv("IGDB_CLIENT_SECRET"),
     )
     games = await fetch_games(igdb, start, end)
-    files = build_files(games, start, end, now)
+    platform_catalogue = await igdb.get_platforms()
+    files = build_files(games, start, end, now, site_url, platform_catalogue)
     write_files(out, files)
     meta: dict[str, Any] = files["meta.json"]
     return meta
@@ -223,8 +260,9 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("frontend/public/data"))
     parser.add_argument("--months-back", type=int, default=2)
     parser.add_argument("--months-ahead", type=int, default=12)
+    parser.add_argument("--site-url", help="Deployed site root, for game links in the feeds")
     args = parser.parse_args()
-    meta = asyncio.run(run(args.out, args.months_back, args.months_ahead))
+    meta = asyncio.run(run(args.out, args.months_back, args.months_ahead, args.site_url or None))
     logger.info("Exported %s games: %s", meta["game_count"], json.dumps(meta["months"]))
 
 

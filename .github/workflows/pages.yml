@@ -42,8 +42,17 @@ jobs:
       - name: Install backend package
         run: pip install -e .
 
+      # Gives the site's URL and sub-path: "/<repo>" on <user>.github.io,
+      # empty once a custom domain is set.
+      - name: Configure Pages
+        id: pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+
       - name: Export releases from IGDB
-        run: python -m app.static_export --out frontend/public/data
+        run: >-
+          python -m app.static_export --out frontend/public/data
+          --site-url "${{ steps.pages.outputs.base_url }}"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -55,13 +64,6 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
-
-      # Gives the sub-path the site is served from: "/<repo>" on
-      # <user>.github.io, empty once a custom domain is set.
-      - name: Configure Pages
-        id: pages
-        if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
 
       - name: Build frontend (static mode)
         working-directory: frontend

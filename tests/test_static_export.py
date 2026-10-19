@@ -108,4 +108,55 @@ check(
 check("Platform counts", [(p["id"], p["game_count"]) for p in files["platforms.json"]], [(48, 1)])
 check("Meta month counts", files["meta.json"]["months"], {"2026-11": 2})
 
+# 6. Calendar feeds (Phase 2): all-day events, stable UIDs, per-platform files.
+ics = files["calendar.ics"]
+check("Feed uses CRLF line endings", ics.count("\r\n") == ics.count("\n"), True)
+check("Feed has one event per in-window release", ics.count("BEGIN:VEVENT"), 2)
+check("Stable UID from IGDB id", "UID:igdb-1@videogamescalendar" in ics, True)
+check("All-day start", "DTSTART;VALUE=DATE:20261105" in ics, True)
+check("Exclusive all-day end", "DTEND;VALUE=DATE:20261106" in ics, True)
+check(
+    "Per-platform feed files",
+    sorted(k for k in files if k.startswith("calendars/")),
+    ["calendars/platform-48.ics"],
+)
+check(
+    "Platform feed only has its games", files["calendars/platform-48.ics"].count("BEGIN:VEVENT"), 1
+)
+
+# 7. Escaping, folding and the 30-day history cut-off.
+from app.ical import build_calendar  # noqa: E402
+
+long_name = "Dragon; Quest, " + "Ü" * 80
+doc = build_calendar(
+    [{"id": 7, "name": long_name, "release_date": "2026-11-05T00:00:00+00:00", "platforms": []}],
+    "Test",
+    now,
+    site_url="https://example.org/cal/",
+)
+check("TEXT escaped", "SUMMARY:Dragon\\; Quest\\, " in doc, True)
+check(
+    "Lines folded to <= 75 octets",
+    max(len(line.encode()) for line in doc.split("\r\n")),
+    75,
+)
+check("Game link from site URL", "URL:https://example.org/cal/game/7" in doc, True)
+old = build_files([mk(9, "Old", [{"date": ts(2026, 9, 1), "release_region": 1}])], start, end, now)
+check("Releases older than 30 days left out of feed", "BEGIN:VEVENT" in old["calendar.ics"], False)
+
+# 8. A catalogue platform with no games in the window still gets a (empty) feed,
+#    so subscribed URLs do not 404 once a platform's last game ages out.
+catalogued = build_files(games, start, end, now, platform_catalogue=[{"id": 99, "name": "Retro"}])
+check("Empty feed for catalogue-only platform", "calendars/platform-99.ics" in catalogued, True)
+check(
+    "Catalogue-only feed has no events",
+    "BEGIN:VEVENT" in catalogued["calendars/platform-99.ics"],
+    False,
+)
+check(
+    "Catalogue-only platform not in platforms.json",
+    [p["id"] for p in catalogued["platforms.json"]],
+    [48],
+)
+
 print(f"\nAll {passed} checks passed.")

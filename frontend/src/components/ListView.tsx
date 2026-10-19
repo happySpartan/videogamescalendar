@@ -1,25 +1,12 @@
-// filepath: c:\Users\jonathan.peil\Downloads\ProgProjects\videogamecalendar\frontend\src\components\ListView.tsx
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Container, Title, LoadingOverlay, Text, Box, Paper, Collapse, Group, UnstyledButton, Button } from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { formatDate } from '../utils/game.utils';
-import { getWeekBounds } from '../utils/calendar.utils';
+import { formatPeriodTitle, getWeekBounds } from '../utils/calendar.utils';
 import FilterBar from './FilterBar';
 import { useReleaseCalendar } from '../hooks/useReleaseCalendar';
 import classes from '../styles/ListView.module.css';
-
-// Helper function to get title from period
-const getViewTitleFromPeriod = (period: { type: 'day' | 'week'; date: Date }) => {
-  if (period.type === 'day') {
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-                      "July", "August", "September", "October", "November", "December"];
-    return `${monthNames[period.date.getMonth()]} ${period.date.getFullYear()}`;
-  } else if (period.type === 'week') {
-    const { start, end } = getWeekBounds(period.date);
-    return `Week of ${formatDateRange(start, end)}`;
-  }
-  return '';
-};
 
 // Group the games by date (day or week)
 const groupGamesByDate = (games: any[], groupBy: 'day' | 'week') => {
@@ -92,12 +79,6 @@ const getWeekNumber = (date: Date): number => {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-// Format week range (start date - end date)
-const formatWeekRange = (date: Date): string => {
-  const { start, end } = getWeekBounds(date);
-  return formatDateRange(start, end);
-};
-
 // Format date range using a consistent format
 const formatDateRange = (start: Date, end: Date): string => {
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -146,28 +127,10 @@ const GroupHeader = ({
   );
 };
 
-interface ListViewProps {
-  view: string;
-  searchQuery?: string;
-  period?: {
-    type: 'day' | 'week';
-    date: Date;
-  };
-  onGamesLoaded?: (games: any[]) => void;
-}
-
-const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
-  const {
-    games,
-    filteredGames,
-    loading,
-    error,
-    hasMore,
-    filterOptions,
-    loadMore,
-    setPlatformFilter,
-    setGenreFilter,
-  } = useReleaseCalendar({ initialPeriod: period ?? { type: 'week', date: new Date() } });
+/** Releases of the current period grouped by day (week view) or week (month view). */
+const ListView = () => {
+  const { games, filteredGames, loading, error, periods: period, searchQuery } = useReleaseCalendar();
+  const groupBy: 'day' | 'week' = period.type === 'week' ? 'day' : 'week';
 
   // State to track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -202,66 +165,16 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
     });
   }, []);
 
-  // Filter handlers
-  const handlePlatformFilter = (platformIds: number[]) => {
-    setPlatformFilter(platformIds);
-  };
+  const viewTitle = formatPeriodTitle(period);
+  const groupedGames = useMemo(() => groupGamesByDate(filteredGames, groupBy), [filteredGames, groupBy]);
+  const groupKeys = groupedGames.map((g) => g.key).join(',');
 
-  const handleGenreFilter = (genreIds: number[]) => {
-    setGenreFilter(genreIds);
-  };
-
-  const handleLanguageFilter = (_languageIds: number[]) => {
-    // Languages are not exposed by the /releases contract; keep a no-op.
-  };
-
-  // Get a title for the current view
-  const getViewTitle = () => {
-    if (period) {
-      return getViewTitleFromPeriod(period);
-    }
-    return view;
-  };
-
-  // Group games by day or week
-  const groupedGames = groupGamesByDate(
-    filteredGames.length > 0 ? filteredGames : games,
-    period?.type === 'day' ? 'day' : 'week'
-  );
-
-  // Set up intersection observer for infinite scrolling
-  const lastGameElementRef = useRef<HTMLDivElement | null>(null);
-
+  // Expand the first group whenever the set of groups changes (not on every
+  // render, which would undo the user's own expand/collapse clicks).
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.5 }
-    );
-
-    if (lastGameElementRef.current) {
-      observer.observe(lastGameElementRef.current);
-    }
-
-    return () => {
-      if (lastGameElementRef.current && observer) {
-        observer.unobserve(lastGameElementRef.current);
-      }
-    };
-  }, [hasMore, loading, loadMore]);
-
-  // Initialize expanded groups when grouped games change
-  useEffect(() => {
-    if (groupedGames.length > 0) {
-      const newExpandedGroups = new Set<string>();
-      // Expand the first group by default
-      newExpandedGroups.add(groupedGames[0].key);
-      setExpandedGroups(newExpandedGroups);
-    }
-  }, [period?.type, filteredGames, games, groupedGames]);
+    const first = groupKeys.split(',')[0];
+    setExpandedGroups(first ? new Set([first]) : new Set());
+  }, [groupKeys]);
 
   // Error display
   if (error) {
@@ -275,7 +188,7 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
   return (
     <Container size="xl">
       <Group justify="space-between" align="center" mb="md">
-        <Title order={2}>{getViewTitle()}</Title>
+        <Title order={2}>{viewTitle}</Title>
         
         {groupedGames.length > 1 && (
           <Group gap="xs">
@@ -297,15 +210,8 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
         )}
       </Group>
       
-      <FilterBar 
-        platforms={filterOptions.platforms || []}
-        genres={filterOptions.genres || []}
-        languages={filterOptions.languages || []}
-        onPlatformFilterChange={handlePlatformFilter}
-        onGenreFilterChange={handleGenreFilter}
-        onLanguageFilterChange={handleLanguageFilter}
-      />
-      
+      <FilterBar />
+
       <div style={{ position: 'relative', marginTop: '1rem' }}>
         <LoadingOverlay visible={loading} />
         
@@ -319,17 +225,11 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
         
         {groupedGames.length > 0 ? (
           <div className={classes.groupList}>
-            {groupedGames.map((group, groupIndex) => (
-              <Paper 
-                key={group.key} 
-                withBorder
-                mb="md"
-                className={classes.groupContainer}
-                ref={groupIndex === groupedGames.length - 1 ? lastGameElementRef : undefined}
-              >
+            {groupedGames.map((group) => (
+              <Paper key={group.key} withBorder mb="md" className={classes.groupContainer}>
                 <GroupHeader 
                   date={group.date}
-                  groupType={period?.type === 'day' ? 'day' : 'week'}
+                  groupType={groupBy}
                   isOpen={expandedGroups.has(group.key)}
                   onToggle={() => toggleGroup(group.key)}
                   gamesCount={group.games.length}
@@ -338,7 +238,7 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
                   <div className={classes.gamesList}>
                     {group.games.map((game: any) => (
                       <Box key={game.id} mb="md" className={classes.gameItem}>
-                        <Paper p="md" withBorder>
+                        <Paper p="md" withBorder component={Link} to={`/game/${game.id}`} className={classes.gameLink}>
                           <Group align="flex-start" justify="space-between">
                             <div>
                               <Text fw={700} size="lg">{game.name}</Text>
@@ -386,14 +286,11 @@ const ListView = ({ view, searchQuery = '', period }: ListViewProps) => {
             <Text ta="center">
               {games.length > 0
                 ? "No games match your filters."
-                : `No games found for ${getViewTitle()}.`}
+                : `No games found for ${viewTitle}.`}
             </Text>
           </Container>
         ) : null}
         
-        {!hasMore && filteredGames.length > 0 && !loading && (
-          <Text ta="center" my="md" c="dimmed">No more games to load</Text>
-        )}
       </div>
     </Container>
   );

@@ -370,7 +370,11 @@ Redis in production. `.github/workflows/pages.yml` runs every 6 hours (and on pu
 1. `python -m app.static_export --out frontend/public/data` pulls releases from IGDB
    (2 months back, 12 months ahead) with the EU release-date rule and writes JSON:
    `releases/YYYY-MM.json`, `games/<igdb_id>.json`, `genres.json`, `platforms.json`,
-   `meta.json`.
+   `meta.json` — plus iCalendar feeds for calendar-app subscriptions: `calendar.ics`
+   (all platforms) and `calendars/platform-<id>.ics` for every IGDB platform (empty when it
+   has no releases, so subscribed URLs never 404), covering upcoming releases and the
+   last 30 days. The **Subscribe** button in the header offers them as `webcal://` /
+   Google Calendar links.
 2. The frontend is built with `VITE_DATA_MODE=static`, so it reads those files instead of
    the API (`VITE_BASE_PATH` sets the sub-path when served from `<user>.github.io/<repo>/`).
 3. `frontend/dist` is deployed to Pages; `404.html` is a copy of `index.html` so deep links
