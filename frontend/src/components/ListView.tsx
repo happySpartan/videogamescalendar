@@ -40,34 +40,13 @@ const groupGamesByDate = (games: any[], groupBy: 'day' | 'week') => {
     groups.get(groupKey).games.push(game);
   });
 
-  // Sort games within each group by:
-  // 1. Release date (primary sort)
-  // 2. Rating (secondary sort, if ratings exist)
-  // 3. Name (tertiary sort)
-  const sortGamesInGroup = (games: any[]) => {
-    return games.sort((a: any, b: any) => {
-      // First sort by release date
-      const dateA = new Date(a.release_date).getTime();
-      const dateB = new Date(b.release_date).getTime();
-      
-      if (dateA !== dateB) return dateA - dateB;
-      
-      // If same date, sort by rating (if available)
-      if (a.rating && b.rating) {
-        if (b.rating !== a.rating) return b.rating - a.rating; // Higher ratings first
-      }
-      
-      // If still tied or no ratings, sort alphabetically
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  };
-
-  // Convert map to array, sort by date, and sort games within each group
+  // Convert map to array, sorted by date
   return Array.from(groups.values())
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .map(group => ({
       ...group,
-      games: sortGamesInGroup(group.games)
+      // Keep the shared order: by day, most anticipated first.
+      games: group.games
     }));
 };
 

@@ -305,7 +305,13 @@ async def get_releases(
         ).scalar()
 
         result = await db.execute(
-            query.order_by(Game.first_release_date.asc()).offset(offset).limit(limit)
+            query.order_by(
+                func.date(Game.first_release_date).asc(),
+                (func.coalesce(Game.hypes, 0) + func.coalesce(Game.follows, 0)).desc(),
+                Game.name.asc(),
+            )
+            .offset(offset)
+            .limit(limit)
         )
         games = result.scalars().all()
 
@@ -321,6 +327,7 @@ async def get_releases(
                     else None,
                     "cover_url": game.cover_url,
                     "rating": game.rating,
+                    "popularity": (game.hypes or 0) + (game.follows or 0),
                     "genres": [{"id": g.id, "name": g.name} for g in game.genres],
                     "platforms": [
                         {"id": p.id, "name": p.name, "abbreviation": p.abbreviation}

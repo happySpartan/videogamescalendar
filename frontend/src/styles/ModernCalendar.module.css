@@ -342,3 +342,15 @@
   transition-duration: 0.3s;
   transition-timing-function: ease;
 }
+
+.dayListItem {
+  display: block;
+  padding: 6px 8px;
+  border-radius: var(--mantine-radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dayListItem:hover {
+  background: var(--mantine-color-gray-1);
+}
