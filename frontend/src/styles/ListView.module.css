@@ -61,3 +61,13 @@
 .collapsibleContentWrapper {
   transition: max-height 0.35s ease;
 }
+
+.gameLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.gameLink:hover {
+  border-color: var(--mantine-color-violet-5);
+}

@@ -5,14 +5,23 @@ import { IconSearch, IconX } from '@tabler/icons-react';
 import classes from '../styles/SearchBar.module.css';
 
 interface SearchBarProps {
+  /** Current search text held by the parent; the input follows it when it changes. */
+  value?: string;
   onSearch: (query: string) => void;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
-  const [value, setValue] = useState('');
+const SearchBar: React.FC<SearchBarProps> = ({ value: externalValue, onSearch }) => {
+  const [value, setValue] = useState(externalValue ?? '');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Follow outside changes (e.g. filters reset). Only fires when the parent's
+  // value changes, which while typing happens after the debounce, so it does
+  // not overwrite what is being typed.
+  useEffect(() => {
+    if (externalValue !== undefined) setValue(externalValue);
+  }, [externalValue]);
 
   // Use debouncing to prevent too many search events
   useEffect(() => {
@@ -69,7 +78,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           )
         }
         radius="xl"
-        size="md"
+        size="sm"
       />
     </div>
   );

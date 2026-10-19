@@ -20,21 +20,22 @@ export const generateICS = (games: Game[], filename: string) => {
   games.forEach(game => {
     if (!game.release_date) return; // Skip if no release date
     
-    const releaseDate = new Date(game.release_date);
-    // Format date as YYYYMMDD
-    const formattedDate = releaseDate.toISOString().replace(/[-:]/g, '').split('T')[0];
-    
-    // Create a unique ID for the event (simplified version)
-    const uid = `game-${game.id}-${formattedDate}@videogamecalendar`;
-    
+    // The release date is a UTC day; all-day events take YYYYMMDD and an
+    // exclusive DTEND (the following day).
+    const day = new Date(`${game.release_date.slice(0, 10)}T00:00:00Z`);
+    const formattedDate = day.toISOString().slice(0, 10).replace(/-/g, '');
+    const nextDay = new Date(day.getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+
+    // Same UID as the subscribable feeds, so the event identity is stable.
+    const uid = `igdb-${game.id}@videogamescalendar`;
+
     // Add event to ICS content
     icsContent = icsContent.concat([
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`,
       `DTSTART;VALUE=DATE:${formattedDate}`,
-      // End date is same day for single-day events
-      `DTEND;VALUE=DATE:${formattedDate}`,
+      `DTEND;VALUE=DATE:${nextDay}`,
       `SUMMARY:${escapeIcsText(game.name)} (Release)`,
       `DESCRIPTION:${escapeIcsText(game.summary || 'No description available')}`,
       // Add developer if available 
@@ -107,4 +108,18 @@ export const getWeekBounds = (date: Date): { start: Date; end: Date } => {
 export const formatDateRange = (start: Date, end: Date): string => {
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+};
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** Display title of a calendar period: "October 2026" or "Oct 19 - Oct 25, 2026". */
+export const formatPeriodTitle = (period: { type: 'month' | 'week'; date: Date }): string => {
+  if (period.type === 'month') {
+    return `${MONTH_NAMES[period.date.getMonth()]} ${period.date.getFullYear()}`;
+  }
+  const { start, end } = getWeekBounds(period.date);
+  return `${formatDateRange(start, end)}, ${end.getFullYear()}`;
 };

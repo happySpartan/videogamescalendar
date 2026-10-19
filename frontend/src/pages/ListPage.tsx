@@ -1,5 +1,5 @@
 import ListView from '../components/ListView';
 
-const ListPage: React.FC = () => <ListView view="List View" />;
+const ListPage: React.FC = () => <ListView />;
 
 export default ListPage;

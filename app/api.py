@@ -201,6 +201,10 @@ async def get_game_by_id(
             "first_release_date": game.first_release_date.isoformat()
             if game.first_release_date
             else None,
+            # Same key as /releases items (the detail page reads release_date).
+            "release_date": game.first_release_date.isoformat()
+            if game.first_release_date
+            else None,
             "rating": game.rating,
             "rating_count": game.rating_count,
             "total_rating": game.total_rating,
