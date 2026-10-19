@@ -16,12 +16,17 @@ export const getPlatformColor = (platformName: string): string => {
 export const platformLabel = (platform: { name: string; abbreviation?: string | null }): string =>
   platform.abbreviation || platform.name;
 
-/** "12 Nov 2026" (in the viewer's locale order). */
+/**
+ * "12 Nov 2026" in the viewer's locale order. Release dates are UTC days
+ * (midnight UTC), so format in UTC: in the viewer's zone, west of UTC would
+ * show the previous day while the calendar places it on the right one.
+ */
 export const formatDate = (dateString: string): string => {
   if (!dateString) return 'TBA';
   return new Date(dateString).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 };

@@ -36,6 +36,9 @@
     font-size: 18px;
     min-width: 0;
     flex: 1;
+    /* Week ranges ("Oct 19 - Oct 25, 2026") must wrap rather than overflow. */
+    white-space: normal;
+    line-height: 1.2;
   }
 
   .filter {

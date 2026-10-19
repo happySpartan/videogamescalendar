@@ -4,6 +4,7 @@ import { CloseButton, Combobox, Group, Loader, Text, TextInput, useCombobox } fr
 import { IconSearch } from '@tabler/icons-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useSearchSuggestions } from '../hooks/queries';
+import { formatDate } from '../utils/game.utils';
 import classes from '../styles/SearchBar.module.css';
 
 interface SearchBarProps {
@@ -13,8 +14,7 @@ interface SearchBarProps {
   onSearch: (query: string) => void;
 }
 
-const formatDay = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBA';
+const formatDay = (iso: string | null) => (iso ? formatDate(iso) : 'TBA');
 
 /**
  * Search box: filters the open view as you type and suggests matching games

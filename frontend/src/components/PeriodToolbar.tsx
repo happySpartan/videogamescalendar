@@ -53,6 +53,7 @@ const PeriodToolbar: React.FC = () => {
           onChange={(selected) => setPlatformFilter(selected.map(Number))}
           searchable
           clearable
+          clearButtonProps={{ 'aria-label': 'Clear console filter' }}
           size="sm"
           maxDropdownHeight={280}
           className={classes.filter}
@@ -66,6 +67,7 @@ const PeriodToolbar: React.FC = () => {
           onChange={(selected) => setGenreFilter(selected.map(Number))}
           searchable
           clearable
+          clearButtonProps={{ 'aria-label': 'Clear genre filter' }}
           size="sm"
           maxDropdownHeight={280}
           className={classes.filter}
