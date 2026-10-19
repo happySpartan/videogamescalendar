@@ -25,6 +25,7 @@ expects, so worker._process_game_data() can consume them with no mapping drift.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any, cast
 
@@ -40,6 +41,13 @@ REGION_WORLDWIDE = 8
 # 5=cancelled, 6=postponed. Entries that are cancelled/postponed are not candidates
 # for the canonical date (they are stale or superseded dates, not the real one).
 EXCLUDED_RELEASE_STATUS = {5, 6}
+
+# IGDB release_dates.category is the date's precision: 0 = exact day; 1 = month,
+# 2 = year, 3-6 = quarter, 7 = TBD. Imprecise dates are stored as the period's
+# last day ("2026" -> Dec 31), so they are not usable calendar days. The
+# ``human`` label is checked too, in case ``category`` is missing.
+EXACT_DAY_CATEGORY = 0
+IMPRECISE_HUMAN = re.compile(r"^(TBD|\d{4}|Q[1-4] \d{4}|[A-Za-z]{3,9} \d{4})$")
 
 IMAGE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg"
 
@@ -85,11 +93,19 @@ def _release_sort_key(entry: dict) -> tuple[int, int | float]:
     return (detail, date)
 
 
+def is_exact_day(entry: dict) -> bool:
+    """True unless IGDB marks the date as month/quarter/year/TBD precision."""
+    category = entry.get("category")
+    if category is not None and category != EXACT_DAY_CATEGORY:
+        return False
+    return not IMPRECISE_HUMAN.match((entry.get("human") or "").strip())
+
+
 def select_release_date(release_dates: list[dict]) -> int | None:
     """Pick the single canonical unix-epoch release date for a game (ADR-0002).
 
     Order of preference:
-      1. A Europe (region 1) dated entry whose status is not cancelled/postponed.
+      1. A Europe (region 1) exact-day entry whose status is not cancelled/postponed.
       2. A Worldwide (region 8) dated entry, same rule.
       3. Otherwise ``None`` (the game is TBA).
 
@@ -107,6 +123,7 @@ def select_release_date(release_dates: list[dict]) -> int | None:
             if e.get("release_region") == region
             and e.get("date") is not None
             and e.get("status") not in EXCLUDED_RELEASE_STATUS
+            and is_exact_day(e)
         ]
 
     for region in (REGION_EUROPE, REGION_WORLDWIDE):

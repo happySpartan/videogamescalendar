@@ -146,7 +146,7 @@ async def clear_cache(
 # Data sync management -------------------------------------------------------
 @router.post("/sync/games")
 async def trigger_game_sync(
-    full_sync: bool = Body(False, description="Perform full sync instead of delta"),
+    full_sync: bool = Body(False, embed=True, description="Perform full sync instead of delta"),
     token: str = Depends(deps.verify_admin_token),
 ):
     """Trigger a manual game sync via the shared Celery app."""

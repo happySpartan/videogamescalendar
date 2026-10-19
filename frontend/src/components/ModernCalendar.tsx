@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Container, Paper, Title, Group, Badge, Image, Tooltip, Box, Stack, Grid, Text, Loader, Center, Alert } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { useReleases } from '../hooks/queries';
+import { useAllReleases } from '../hooks/queries';
 import type { Release } from '../api/types';
 import classes from '../styles/ModernCalendar.module.css';
 
@@ -16,8 +16,8 @@ const ModernCalendar: React.FC = () => {
   const lastDay = new Date(year, month + 1, 0).getDate();
   const monthEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
 
-  const { data, isPending, isError, error } = useReleases({ from: monthStart, to: monthEnd, limit: 300 });
-  const releases: Release[] = data?.releases ?? [];
+  const { data, isPending, isError, error } = useAllReleases({ from: monthStart, to: monthEnd, limit: 500 });
+  const releases: Release[] = data ?? [];
 
   // Build the calendar grid (weeks of day-cells) for the current month.
   const calendarData = useMemo(() => {
