@@ -1,6 +1,7 @@
 // Thin, typed fetch client for the backend API, or the static JSON export.
 // The single source of truth for how the frontend talks to the backend.
 import type {
+  GameDetail,
   GenreRef,
   PlatformRef,
   Release,
@@ -94,8 +95,8 @@ class ApiClient {
     return [first, ...rest].flatMap((r) => r.releases);
   }
 
-  getRelease(id: number | string): Promise<Release> {
-    return this.getJSON<Release>(STATIC_DATA ? `/games/${id}.json` : `/games/${id}`);
+  getRelease(id: number | string): Promise<GameDetail> {
+    return this.getJSON<GameDetail>(STATIC_DATA ? `/games/${id}.json` : `/games/${id}`);
   }
 
   // Arrow functions: the query hooks pass these as bare references.

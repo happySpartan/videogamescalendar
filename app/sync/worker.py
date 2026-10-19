@@ -100,6 +100,8 @@ async def _process_game_data(db, game_data: dict) -> Game:
 
     screenshots = [s.get("url") for s in (game_data.get("screenshots") or []) if s.get("url")]
     game.screenshots = screenshots
+    game.videos = game_data.get("videos") or []
+    game.websites = game_data.get("websites") or []
 
     game.status = game_data.get("status")
     game.category = game_data.get("category")

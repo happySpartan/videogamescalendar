@@ -159,4 +159,37 @@ check(
     [48],
 )
 
+# 9. Phase 3: trailers, screenshots and store links on the game detail.
+from app.sync.igdb_client import store_name  # noqa: E402
+
+check("Steam link", store_name("https://store.steampowered.com/app/1/X/"), "Steam")
+check("itch.io subdomain", store_name("https://studio.itch.io/game"), "itch.io")
+check("Non-store link", store_name("https://www.example-game.com/"), None)
+rich = IGDBService()._normalize_game(
+    {
+        "id": 50,
+        "name": "Rich",
+        "screenshots": [{"image_id": "sc1"}],
+        "videos": [{"video_id": "abc123", "name": "Trailer"}, {"name": "no id"}],
+        "websites": [
+            {"url": "https://store.playstation.com/x"},
+            {"url": "https://rich.example/"},
+            {"url": "https://rich.example/"},
+            {"url": "not a url"},
+        ],
+    },
+    [{"date": ts(2026, 11, 3), "release_region": 1}],
+)
+detail = build_files([rich], start, end, now)["games/50.json"]
+check("Videos with an id", detail["videos"], [{"video_id": "abc123", "name": "Trailer"}])
+check(
+    "Websites deduplicated, invalid dropped, stores recognised",
+    detail["websites"],
+    [
+        {"url": "https://store.playstation.com/x", "store": "PlayStation Store"},
+        {"url": "https://rich.example/", "store": None},
+    ],
+)
+check("Screenshot at 16:9 size", detail["screenshots"][0].split("/")[-2], "t_screenshot_big")
+
 print(f"\nAll {passed} checks passed.")

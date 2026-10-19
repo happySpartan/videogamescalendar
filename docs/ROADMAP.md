@@ -56,17 +56,17 @@ Let people subscribe to releases from Google/Apple/Outlook Calendar.
 3. **Subscribe button** (#12) — header dialog (static build only): pick a platform, then
    open the `webcal://` link, add to Google Calendar, or copy the feed URL.
 
-## Phase 3 — Richer game pages (#3)
+## Phase 3 — Richer game pages (#3) — done
 
-IGDB already has the data; most of the work is fetching and rendering it.
-
-1. **Sync videos + websites** (#13) — add `videos.video_id,videos.name` and
-   `websites.url,websites.category` to `GAME_FIELDS` and map them in the worker
-   (the `videos` / `websites` columns already exist but are never populated).
-2. **Trailers + screenshot gallery** (#14) — embed YouTube trailers and show the
-   already-synced screenshots on the detail page.
-3. **Store links** (#15) — show Steam / PlayStation / Xbox / Nintendo eShop / Epic / GOG links
-   from IGDB websites, with platform icons.
+1. **Sync videos + websites** (#13) — `videos.video_id,videos.name` and `websites.url` are
+   fetched by both the sync worker and the static export. Store links are recognised by
+   host (Steam, PlayStation Store, Xbox, Nintendo eShop, Epic, GOG, itch.io, app stores)
+   rather than IGDB's website type enum. Screenshots now use the 16:9 `t_screenshot_big`
+   size (they were cropped to the cover size).
+2. **Trailers + screenshot gallery** (#14) — click-to-load YouTube player
+   (`youtube-nocookie.com`, nothing loads until played), video switcher, screenshot grid
+   with a full-size viewer.
+3. **Store links** (#15) — store buttons plus up to three other sites (official site etc.).
 
 ## Later / ideas (not committed)
 
