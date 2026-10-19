@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Paper, Title, Group, Badge, Image, Tooltip, Box, Stack, Grid, Text, Loader, Center, Alert, UnstyledButton, Modal, ScrollArea } from '@mantine/core';
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { Group, Tooltip, Stack, Text, Loader, Center, Alert, UnstyledButton, Modal, ScrollArea } from '@mantine/core';
 import type { Release } from '../api/types';
 import { getWeekStart, useReleaseCalendar } from '../hooks/useReleaseCalendar';
-import { formatPeriodTitle } from '../utils/calendar.utils';
+import PeriodToolbar from './PeriodToolbar';
 import classes from '../styles/ModernCalendar.module.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -15,7 +14,7 @@ const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 
 /** Month grid (or one week row) of releases, driven by the shared period, filters and search. */
 const ModernCalendar: React.FC = () => {
-  const { periods: period, filteredReleases, loading, isError, error, shiftPeriod } = useReleaseCalendar();
+  const { periods: period, filteredReleases, loading, isError, error } = useReleaseCalendar();
   // The day whose full list is open ("+N more"): a cell shows only 4 games.
   const [openDay, setOpenDay] = useState<{ date: Date; games: Release[] } | null>(null);
   const year = period.date.getFullYear();
@@ -47,21 +46,11 @@ const ModernCalendar: React.FC = () => {
     return weeks;
   }, [filteredReleases, period, year, month]);
 
+  const todayKey = isoDay(new Date());
+
   return (
-    <Container size="100%" className={classes.calendarContainer}>
-      <Paper className={classes.header} p="lg" mb="md">
-        <Group justify="space-between" align="center">
-          <UnstyledButton className={classes.navButton} onClick={() => shiftPeriod(-1)} aria-label={`Previous ${period.type}`}>
-            <IconChevronLeft size={24} />
-          </UnstyledButton>
-          <Title order={2} className={classes.monthTitle}>
-            {formatPeriodTitle(period)}
-          </Title>
-          <UnstyledButton className={classes.navButton} onClick={() => shiftPeriod(1)} aria-label={`Next ${period.type}`}>
-            <IconChevronRight size={24} />
-          </UnstyledButton>
-        </Group>
-      </Paper>
+    <div className={classes.calendarContainer}>
+      <PeriodToolbar />
 
       {isError && (
         <Alert color="red" title="Failed to load releases" mb="md">
@@ -69,81 +58,88 @@ const ModernCalendar: React.FC = () => {
         </Alert>
       )}
 
-      <Paper className={classes.calendarGrid}>
-        <Grid className={classes.weekDaysHeader} gutter={4}>
+      <div className={classes.calendarGrid}>
+        <div className={classes.weekDaysHeader}>
           {weekDays.map((day) => (
-            <Grid.Col key={day} span={{ base: 12 / 7 }}>
-              <Text className={classes.weekDay} ta="center" fw={600} size="sm">{day.slice(0, 3)}</Text>
-            </Grid.Col>
+            <div key={day} className={classes.weekDay}>
+              {day.slice(0, 3)}
+            </div>
           ))}
-        </Grid>
+        </div>
 
         {loading ? (
-          <Center py="xl"><Loader /></Center>
+          <Center py="xl">
+            <Loader />
+          </Center>
         ) : (
           calendarData.map((week, weekIdx) => (
-            <Grid key={weekIdx} className={classes.calendarWeek} gutter={4}>
-              {week.map((day, dayIdx) => (
-                <Grid.Col key={dayIdx} span={{ base: 12 / 7 }}>
-                  <Paper
-                    className={`${classes.dayCell} ${!day.isCurrentMonth ? classes.otherMonth : ''} ${day.games.length > 0 ? classes.hasGames : ''}`}
-                  >
-                    <Text className={classes.dayNumber} fw={600}>{day.date.getDate()}</Text>
-                    {day.games.length > 0 && (
-                      <Box className={classes.gamesContainer}>
-                        <Box className={classes.gamesGrid}>
-                          {day.games.slice(0, 4).map((game) => (
-                            <Tooltip
-                              key={game.id}
-                              label={
-                                <Stack gap={4}>
-                                  <Text fw={600} size="sm">{game.name}</Text>
-                                  {game.genres.slice(0, 3).map((g) => (
-                                    <Badge key={g.id} size="xs" variant="light">{g.name}</Badge>
-                                  ))}
-                                </Stack>
-                              }
-                              withArrow
-                              position="top"
-                            >
-                              <Box component={Link} to={`/game/${game.id}`} className={classes.gameImageWrapper} aria-label={game.name}>
-                                <Image
-                                  src={game.cover_url?.replace('t_thumb', 't_cover_small') || 'https://placehold.co/90x120?text=No+Cover'}
-                                  alt={game.name}
-                                  className={classes.gameImage}
-                                  fit="cover"
-                                />
-                                <div className={classes.auraEffect} />
-                              </Box>
-                            </Tooltip>
-                          ))}
-                        </Box>
-                        {day.games.length > 4 && (
-                          <Badge
-                            component="button"
-                            type="button"
-                            onClick={() => setOpenDay({ date: day.date, games: day.games })}
-                            className={classes.moreGamesBadge}
-                            size="xs"
-                            variant="filled"
-                            color="blue"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            +{day.games.length - 4} more
-                          </Badge>
-                        )}
-                      </Box>
-                    )}
-                    {day.games.length === 0 && day.isCurrentMonth && (
-                      <Text className={classes.noGames} size="xs" c="dimmed" ta="center">No releases</Text>
-                    )}
-                  </Paper>
-                </Grid.Col>
+            <div key={weekIdx} className={classes.calendarWeek}>
+              {week.map((day) => (
+                <div
+                  key={isoDay(day.date)}
+                  className={classes.dayCell}
+                  data-other-month={!day.isCurrentMonth || undefined}
+                  data-today={isoDay(day.date) === todayKey || undefined}
+                >
+                  <span className={classes.dayNumber}>{day.date.getDate()}</span>
+                  {day.games.length > 0 && (
+                    <div className={classes.gamesGrid}>
+                      {day.games.slice(0, 4).map((game) => (
+                        <Tooltip
+                          key={game.id}
+                          label={
+                            <Stack gap={2}>
+                              <Text fw={600} size="sm">{game.name}</Text>
+                              <Text size="xs" c="dimmed">
+                                {game.platforms.map((p) => p.abbreviation || p.name).join(' · ')}
+                              </Text>
+                            </Stack>
+                          }
+                          withArrow
+                          position="top"
+                          openDelay={150}
+                        >
+                          <Link to={`/game/${game.id}`} className={classes.gameImageWrapper} aria-label={game.name}>
+                            {game.cover_url ? (
+                              <img
+                                src={game.cover_url.replace('t_cover_big', 't_cover_small')}
+                                alt=""
+                                loading="lazy"
+                                className={classes.gameImage}
+                              />
+                            ) : (
+                              <span className={classes.noCover}>{game.name}</span>
+                            )}
+                          </Link>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  )}
+                  {/* Desktop shows 4 covers per day, phones 1: separate counts. */}
+                  {day.games.length > 4 && (
+                    <UnstyledButton
+                      onClick={() => setOpenDay({ date: day.date, games: day.games })}
+                      className={`${classes.moreGames} ${classes.moreDesktop}`}
+                    >
+                      +{day.games.length - 4} more
+                    </UnstyledButton>
+                  )}
+                  {day.games.length > 1 && (
+                    <UnstyledButton
+                      onClick={() => setOpenDay({ date: day.date, games: day.games })}
+                      className={`${classes.moreGames} ${classes.moreMobile}`}
+                      aria-label={`All ${day.games.length} releases`}
+                    >
+                      +{day.games.length - 1}
+                    </UnstyledButton>
+                  )}
+                </div>
               ))}
-            </Grid>
+            </div>
           ))
         )}
-      </Paper>
+      </div>
+
       <Modal
         opened={openDay !== null}
         onClose={() => setOpenDay(null)}
@@ -158,14 +154,9 @@ const ModernCalendar: React.FC = () => {
           {openDay?.games.map((game) => (
             <UnstyledButton key={game.id} component={Link} to={`/game/${game.id}`} className={classes.dayListItem}>
               <Group gap="sm" wrap="nowrap">
-                <Image
-                  src={game.cover_url?.replace('t_cover_big', 't_cover_small') || 'https://placehold.co/45x64?text=%3F'}
-                  w={36}
-                  h={48}
-                  radius="xs"
-                  fit="cover"
-                  alt=""
-                />
+                <span className={classes.listThumb}>
+                  {game.cover_url && <img src={game.cover_url.replace('t_cover_big', 't_cover_small')} alt="" />}
+                </span>
                 <div style={{ minWidth: 0 }}>
                   <Text fw={600} size="sm" truncate>{game.name}</Text>
                   <Text size="xs" c="dimmed" truncate>
@@ -177,7 +168,7 @@ const ModernCalendar: React.FC = () => {
           ))}
         </Stack>
       </Modal>
-    </Container>
+    </div>
   );
 };
 

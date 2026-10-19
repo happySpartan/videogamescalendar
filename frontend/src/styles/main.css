@@ -1,17 +1,24 @@
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #f7f8fa;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+/* Design tokens (match theme/theme.ts). Dark graphite UI; cover art is the colour. */
+:root {
+  --vgc-bg: #0f1115;
+  --vgc-surface: #14171d;
+  --vgc-surface-2: #1c2029;
+  --vgc-border: #2a2f39;
+  --vgc-text: #e7e9ee;
+  --vgc-text-muted: #9097a3;
+  --vgc-accent: #5670f2;
+  --vgc-accent-soft: rgba(86, 112, 242, 0.14);
 }
 
 * {
   box-sizing: border-box;
 }
 
-:root {
-  --primary-color: #1890ff;
-  --primary-light: #e6f7ff;
-  --primary-hover: #40a9ff;
-  --primary-active: #096dd9;
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--vgc-bg);
+  color: var(--vgc-text);
+  -webkit-font-smoothing: antialiased;
 }

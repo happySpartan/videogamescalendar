@@ -7,11 +7,10 @@ import GameGridPage from './pages/GameGridPage';
 import ListPage from './pages/ListPage';
 import GameDetailPage from './pages/GameDetailPage';
 import appTheme from './theme/theme';
-import '@mantine/core/styles.css';
 
 const App: React.FC = () => {
   return (
-    <MantineProvider theme={appTheme}>
+    <MantineProvider theme={appTheme} forceColorScheme="dark">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<CalendarPage />} />

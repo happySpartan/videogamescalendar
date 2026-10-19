@@ -1,277 +1,148 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Title, LoadingOverlay, Text, Box, Paper, Collapse, Group, UnstyledButton, Button } from '@mantine/core';
+import { Button, Collapse, Group, LoadingOverlay, Text, UnstyledButton } from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { formatDate } from '../utils/game.utils';
-import { formatPeriodTitle, getWeekBounds } from '../utils/calendar.utils';
-import FilterBar from './FilterBar';
+import { formatDateRange, formatPeriodTitle, getWeekBounds } from '../utils/calendar.utils';
+import PeriodToolbar from './PeriodToolbar';
+import PlatformChips from './PlatformChips';
 import { useReleaseCalendar } from '../hooks/useReleaseCalendar';
+import type { Game } from '../types';
 import classes from '../styles/ListView.module.css';
 
-// Group the games by date (day or week)
-const groupGamesByDate = (games: any[], groupBy: 'day' | 'week') => {
-  // Create a map to hold groups
-  const groups = new Map();
-
-  games.forEach(game => {
-    if (!game.release_date) return;
-    
-    const releaseDate = new Date(game.release_date);
-    let groupKey: string;
-    
-    if (groupBy === 'day') {
-      // Group by day - format as YYYY-MM-DD
-      groupKey = releaseDate.toISOString().split('T')[0];
-    } else {
-      // Group by week - use week number and year
-      const weekNumber = getWeekNumber(releaseDate);
-      const year = releaseDate.getFullYear();
-      groupKey = `${year}-W${weekNumber.toString().padStart(2, '0')}`;
-    }
-    
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, {
-        key: groupKey,
-        date: releaseDate,
-        games: []
-      });
-    }
-    
-    groups.get(groupKey).games.push(game);
-  });
-
-  // Convert map to array, sorted by date
-  return Array.from(groups.values())
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .map(group => ({
-      ...group,
-      // Keep the shared order: by day, most anticipated first.
-      games: group.games
-    }));
-};
-
-// Helper function to get week number
-const getWeekNumber = (date: Date): number => {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-};
-
-// Format date range using a consistent format
-const formatDateRange = (start: Date, end: Date): string => {
-  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
-};
-
-// Create a component for the group header
-const GroupHeader = ({ 
-  date, 
-  groupType, 
-  isOpen, 
-  onToggle, 
-  gamesCount 
-}: { 
+interface DateGroup {
+  key: string;
   date: Date;
-  groupType: 'day' | 'week';
-  isOpen: boolean;
-  onToggle: () => void;
-  gamesCount: number;
-}) => {
-  let headerText = '';
-  
-  if (groupType === 'day') {
-    headerText = date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  } else {
-    const { start, end } = getWeekBounds(date);
-    headerText = `Week ${getWeekNumber(date)}, ${date.getFullYear()} (${formatDateRange(start, end)})`;
-  }
+  games: Game[];
+}
 
-  return (
-    <UnstyledButton 
-      onClick={onToggle}
-      className={classes.groupHeader}
-    >
-      <Group gap="md">
-        {isOpen ? <IconChevronDown size={20} /> : <IconChevronRight size={20} />}
-        <Text fw={700}>{headerText}</Text>
-        <Text c="dimmed" size="sm">({gamesCount} {gamesCount === 1 ? 'game' : 'games'})</Text>
-      </Group>
-    </UnstyledButton>
-  );
+/** Local Date for a release's (UTC) day, so groups match the calendar's days. */
+const releaseDay = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/** Group by day or by (Monday-first) week, keeping the shared order inside groups. */
+const groupGames = (games: Game[], groupBy: 'day' | 'week'): DateGroup[] => {
+  const groups = new Map<string, DateGroup>();
+  for (const game of games) {
+    if (!game.release_date) continue;
+    const day = releaseDay(game.release_date);
+    const date = groupBy === 'day' ? day : getWeekBounds(day).start;
+    const key = date.toDateString();
+    if (!groups.has(key)) groups.set(key, { key, date, games: [] });
+    groups.get(key)!.games.push(game);
+  }
+  return [...groups.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
+};
+
+const groupLabel = (date: Date, groupBy: 'day' | 'week') => {
+  if (groupBy === 'day') {
+    return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  const { start, end } = getWeekBounds(date);
+  return `Week of ${formatDateRange(start, end)}`;
 };
 
 /** Releases of the current period grouped by day (week view) or week (month view). */
 const ListView = () => {
   const { games, filteredGames, loading, error, periods: period, searchQuery } = useReleaseCalendar();
   const groupBy: 'day' | 'week' = period.type === 'week' ? 'day' : 'week';
+  const groups = useMemo(() => groupGames(filteredGames, groupBy), [filteredGames, groupBy]);
+  const groupKeys = groups.map((g) => g.key).join(',');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // State to track which groups are expanded
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  
-  // Toggle group expansion
-  const toggleGroup = useCallback((groupKey: string) => {
-    setExpandedGroups(prevExpanded => {
-      const newExpanded = new Set(prevExpanded);
-      if (newExpanded.has(groupKey)) {
-        newExpanded.delete(groupKey);
-      } else {
-        newExpanded.add(groupKey);
-      }
-      return newExpanded;
-    });
-  }, []);
-  
-  // Toggle all groups
-  const toggleAllGroups = useCallback((groupKeys: string[], expand: boolean) => {
-    setExpandedGroups(prevExpanded => {
-      const newExpanded = new Set(prevExpanded);
-      
-      if (expand) {
-        // Add all group keys to expanded set
-        groupKeys.forEach(key => newExpanded.add(key));
-      } else {
-        // Remove all group keys from expanded set
-        groupKeys.forEach(key => newExpanded.delete(key));
-      }
-      
-      return newExpanded;
-    });
-  }, []);
-
-  const viewTitle = formatPeriodTitle(period);
-  const groupedGames = useMemo(() => groupGamesByDate(filteredGames, groupBy), [filteredGames, groupBy]);
-  const groupKeys = groupedGames.map((g) => g.key).join(',');
-
-  // Expand the first group whenever the set of groups changes (not on every
-  // render, which would undo the user's own expand/collapse clicks).
+  // Open the first group whenever the set of groups changes (not on every
+  // render, which would undo the user's own clicks).
   useEffect(() => {
     const first = groupKeys.split(',')[0];
-    setExpandedGroups(first ? new Set([first]) : new Set());
+    setExpanded(first ? new Set([first]) : new Set());
   }, [groupKeys]);
 
-  // Error display
-  if (error) {
-    return (
-      <Container>
-        <Text color="red">{error}</Text>
-      </Container>
-    );
-  }
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
-    <Container size="xl">
-      <Group justify="space-between" align="center" mb="md">
-        <Title order={2}>{viewTitle}</Title>
-        
-        {groupedGames.length > 1 && (
+    <div>
+      <PeriodToolbar />
+
+      {error && (
+        <Text c="red" mb="md">
+          {error}
+        </Text>
+      )}
+
+      <Group justify="space-between" mb="sm" mih={30}>
+        <Text size="sm" c="dimmed">
+          {searchQuery
+            ? `${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} matching "${searchQuery}"`
+            : `${filteredGames.length} release${filteredGames.length === 1 ? '' : 's'}`}
+        </Text>
+        {groups.length > 1 && (
           <Group gap="xs">
-            <Button 
-              variant="light" 
-              size="xs" 
-              onClick={() => toggleAllGroups(groupedGames.map(g => g.key), true)}
-            >
-              Expand All
+            <Button variant="subtle" size="xs" onClick={() => setExpanded(new Set(groups.map((g) => g.key)))}>
+              Expand all
             </Button>
-            <Button 
-              variant="light" 
-              size="xs" 
-              onClick={() => toggleAllGroups(groupedGames.map(g => g.key), false)}
-            >
-              Collapse All
+            <Button variant="subtle" size="xs" onClick={() => setExpanded(new Set())}>
+              Collapse all
             </Button>
           </Group>
         )}
       </Group>
-      
-      <FilterBar />
 
-      <div style={{ position: 'relative', marginTop: '1rem' }}>
-        <LoadingOverlay visible={loading} />
-        
-        {searchQuery && (
-          <Text mb="md" size="sm" c="dimmed">
-            {filteredGames.length === 0
-              ? `No games found matching "${searchQuery}"`
-              : `Found ${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} matching "${searchQuery}"`}
+      <div className={classes.groupList}>
+        <LoadingOverlay visible={loading} overlayProps={{ backgroundOpacity: 0.3 }} />
+        {groups.map((group) => {
+          const open = expanded.has(group.key);
+          return (
+            <section key={group.key} className={classes.groupContainer}>
+              <UnstyledButton onClick={() => toggle(group.key)} className={classes.groupHeader} aria-expanded={open}>
+                {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                <span className={classes.groupTitle}>{groupLabel(group.date, groupBy)}</span>
+                <span className={classes.groupCount}>{group.games.length}</span>
+              </UnstyledButton>
+              <Collapse in={open}>
+                <div className={classes.gamesList}>
+                  {group.games.map((game) => (
+                    <Link key={game.id} to={`/game/${game.id}`} className={classes.gameRow}>
+                      <span className={classes.thumb}>
+                        {game.cover_url && (
+                          <img src={game.cover_url.replace('t_cover_big', 't_cover_small')} alt="" loading="lazy" />
+                        )}
+                      </span>
+                      <span className={classes.info}>
+                        <Text fw={600} size="sm" truncate>
+                          {game.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {formatDate(game.release_date)}
+                          {game.genres && game.genres.length > 0 && ` · ${game.genres.map((g) => g.name).slice(0, 2).join(', ')}`}
+                        </Text>
+                      </span>
+                      {game.platforms && game.platforms.length > 0 && (
+                        <span className={classes.platforms}>
+                          <PlatformChips platforms={game.platforms} max={4} />
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </Collapse>
+            </section>
+          );
+        })}
+        {groups.length === 0 && !loading && (
+          <Text ta="center" c="dimmed" py="xl">
+            {games.length > 0 ? 'No games match your filters.' : `No releases in ${formatPeriodTitle(period)}.`}
           </Text>
         )}
-        
-        {groupedGames.length > 0 ? (
-          <div className={classes.groupList}>
-            {groupedGames.map((group) => (
-              <Paper key={group.key} withBorder mb="md" className={classes.groupContainer}>
-                <GroupHeader 
-                  date={group.date}
-                  groupType={groupBy}
-                  isOpen={expandedGroups.has(group.key)}
-                  onToggle={() => toggleGroup(group.key)}
-                  gamesCount={group.games.length}
-                />
-                <Collapse in={expandedGroups.has(group.key)} className={classes.collapsibleContentWrapper}>
-                  <div className={classes.gamesList}>
-                    {group.games.map((game: any) => (
-                      <Box key={game.id} mb="md" className={classes.gameItem}>
-                        <Paper p="md" withBorder component={Link} to={`/game/${game.id}`} className={classes.gameLink}>
-                          <Group align="flex-start" justify="space-between">
-                            <div>
-                              <Text fw={700} size="lg">{game.name}</Text>
-                              <Group mt={4} gap="xs">
-                                {game.release_date && (
-                                  <Text size="sm" c="dimmed">
-                                    {formatDate(game.release_date)}
-                                  </Text>
-                                )}
-                                {game.genre && (
-                                  <Text size="sm" c="blue">
-                                    {game.genre.name}
-                                  </Text>
-                                )}
-                                {game.developer && (
-                                  <Text size="sm" c="dimmed">
-                                    {game.developer.name}
-                                  </Text>
-                                )}
-                              </Group>
-                            </div>
-                            {game.platforms && game.platforms.length > 0 && (
-                              <Group gap="xs">
-                                {game.platforms.slice(0, 3).map((platform: any) => (
-                                  <Text key={platform.id} size="xs" fw={500} c="dimmed">
-                                    {platform.abbreviation || platform.name}
-                                  </Text>
-                                ))}
-                                {game.platforms.length > 3 && (
-                                  <Text size="xs" c="dimmed">+{game.platforms.length - 3}</Text>
-                                )}
-                              </Group>
-                            )}
-                          </Group>
-                        </Paper>
-                      </Box>
-                    ))}
-                  </div>
-                </Collapse>
-              </Paper>
-            ))}
-          </div>
-        ) : !loading ? (
-          <Container>
-            <Text ta="center">
-              {games.length > 0
-                ? "No games match your filters."
-                : `No games found for ${viewTitle}.`}
-            </Text>
-          </Container>
-        ) : null}
-        
       </div>
-    </Container>
+    </div>
   );
 };
 

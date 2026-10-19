@@ -55,6 +55,14 @@ export interface GameDetail extends Release {
   companies?: CompanyRef[];
 }
 
+/** A search suggestion (static search.json or GET /games/search). */
+export interface SearchHit {
+  id: number;
+  name: string;
+  release_date: string | null;
+  cover_url: string | null;
+}
+
 export interface ReleasesResponse {
   releases: Release[];
   pagination: {

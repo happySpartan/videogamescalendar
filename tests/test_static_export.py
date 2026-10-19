@@ -214,4 +214,11 @@ day = build_files(
 check("Day ordered by popularity", [r["name"] for r in day], ["Zelda Big", "Mid", "Aardvark Sim"])
 check("Popularity exported", [r["popularity"] for r in day], [240, 10, 1])
 
+# 11. Search index for name suggestions, most anticipated first.
+index = build_files(
+    [day_game(60, "Aardvark Sim", 0, 1), day_game(61, "Zelda Big", 40, 200)], start, end, now
+)["search.json"]
+check("Search index order", [g["name"] for g in index], ["Zelda Big", "Aardvark Sim"])
+check("Search index fields", sorted(index[0]), ["cover_url", "id", "name", "release_date"])
+
 print(f"\nAll {passed} checks passed.")

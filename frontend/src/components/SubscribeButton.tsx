@@ -23,7 +23,7 @@ const SubscribeButton: React.FC = () => {
       <Button
         leftSection={<IconCalendarPlus size={16} />}
         variant="filled"
-        size="xs"
+        size="sm"
         onClick={() => setOpened(true)}
       >
         Subscribe

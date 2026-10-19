@@ -21,6 +21,7 @@ import {
 } from '@mantine/core';
 import { IconArrowLeft, IconExternalLink, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useRelease } from '../hooks/queries';
+import { formatDate } from '../utils/game.utils';
 import type { GameVideo, GameWebsite } from '../api/types';
 import classes from '../styles/GameDetail.module.css';
 
@@ -165,17 +166,15 @@ const GameDetailPage: React.FC = () => {
             <Stack gap="sm" style={{ flex: 1 }}>
               <Title order={1}>{game.name}</Title>
               <Text c="dimmed">
-                {game.release_date
-                  ? `Releases: ${new Date(game.release_date).toLocaleDateString()}`
-                  : 'Release date TBA'}
+                {game.release_date ? `Releases ${formatDate(game.release_date)}` : 'Release date TBA'}
                 {companies.length > 0 && ` · by ${companies.map((c) => c.name).join(', ')}`}
               </Text>
               <Group gap="xs">
                 {game.genres.map((g) => (
-                  <Badge key={g.id} variant="light">{g.name}</Badge>
+                  <Badge key={g.id} variant="light" tt="none">{g.name}</Badge>
                 ))}
                 {game.platforms.map((p) => (
-                  <Badge key={p.id} variant="outline">{p.abbreviation || p.name}</Badge>
+                  <Badge key={p.id} variant="default" tt="none">{p.abbreviation || p.name}</Badge>
                 ))}
               </Group>
               {game.summary && <Text>{game.summary}</Text>}

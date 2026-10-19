@@ -1,6 +1,7 @@
 // Thin, typed fetch client for the backend API, or the static JSON export.
 // The single source of truth for how the frontend talks to the backend.
 import type {
+  SearchHit,
   GameDetail,
   GenreRef,
   PlatformRef,
@@ -97,6 +98,29 @@ class ApiClient {
 
   getRelease(id: number | string): Promise<GameDetail> {
     return this.getJSON<GameDetail>(STATIC_DATA ? `/games/${id}.json` : `/games/${id}`);
+  }
+
+  private searchIndex: Promise<SearchHit[]> | null = null;
+
+  /** Name suggestions: names starting with the query first, then containing it. */
+  async searchGames(query: string, limit = 8): Promise<SearchHit[]> {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    if (!STATIC_DATA) {
+      const res = await this.getJSON<{ results: Array<SearchHit & { first_release_date?: string | null }> }>(
+        `/games/search${this.buildQuery({ q: query.trim(), limit })}`,
+      );
+      return res.results.map((r) => ({ ...r, release_date: r.release_date ?? r.first_release_date ?? null }));
+    }
+    // The static index is small (one entry per exported game); load it once.
+    this.searchIndex ??= this.getJSON<SearchHit[]>('/search.json').catch((error) => {
+      this.searchIndex = null;
+      throw error;
+    });
+    const index = await this.searchIndex;
+    const starts = index.filter((g) => g.name.toLowerCase().startsWith(q));
+    const contains = index.filter((g) => !g.name.toLowerCase().startsWith(q) && g.name.toLowerCase().includes(q));
+    return [...starts, ...contains].slice(0, limit);
   }
 
   // Arrow functions: the query hooks pass these as bare references.

@@ -56,3 +56,14 @@ export function useRelease(id: number | string) {
     staleTime: THIRTY_MIN,
   });
 }
+
+/** Game-name suggestions for the search box (empty query -> no request). */
+export function useSearchSuggestions(query: string) {
+  return useQuery({
+    queryKey: ['search', query.trim().toLowerCase()],
+    queryFn: () => apiClient.searchGames(query),
+    enabled: query.trim().length > 0,
+    staleTime: THIRTY_MIN,
+    placeholderData: keepPreviousData,
+  });
+}
