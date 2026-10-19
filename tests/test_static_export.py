@@ -144,4 +144,19 @@ check("Game link from site URL", "URL:https://example.org/cal/game/7" in doc, Tr
 old = build_files([mk(9, "Old", [{"date": ts(2026, 9, 1), "release_region": 1}])], start, end, now)
 check("Releases older than 30 days left out of feed", "BEGIN:VEVENT" in old["calendar.ics"], False)
 
+# 8. A catalogue platform with no games in the window still gets a (empty) feed,
+#    so subscribed URLs do not 404 once a platform's last game ages out.
+catalogued = build_files(games, start, end, now, platform_catalogue=[{"id": 99, "name": "Retro"}])
+check("Empty feed for catalogue-only platform", "calendars/platform-99.ics" in catalogued, True)
+check(
+    "Catalogue-only feed has no events",
+    "BEGIN:VEVENT" in catalogued["calendars/platform-99.ics"],
+    False,
+)
+check(
+    "Catalogue-only platform not in platforms.json",
+    [p["id"] for p in catalogued["platforms.json"]],
+    [48],
+)
+
 print(f"\nAll {passed} checks passed.")

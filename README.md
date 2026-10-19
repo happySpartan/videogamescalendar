@@ -371,7 +371,8 @@ Redis in production. `.github/workflows/pages.yml` runs every 6 hours (and on pu
    (2 months back, 12 months ahead) with the EU release-date rule and writes JSON:
    `releases/YYYY-MM.json`, `games/<igdb_id>.json`, `genres.json`, `platforms.json`,
    `meta.json` — plus iCalendar feeds for calendar-app subscriptions: `calendar.ics`
-   (all platforms) and `calendars/platform-<id>.ics`, covering upcoming releases and the
+   (all platforms) and `calendars/platform-<id>.ics` for every IGDB platform (empty when it
+   has no releases, so subscribed URLs never 404), covering upcoming releases and the
    last 30 days. The **Subscribe** button in the header offers them as `webcal://` /
    Google Calendar links.
 2. The frontend is built with `VITE_DATA_MODE=static`, so it reads those files instead of

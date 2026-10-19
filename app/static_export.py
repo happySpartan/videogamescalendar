@@ -151,8 +151,14 @@ def build_files(
     end: datetime,
     now: datetime,
     site_url: str | None = None,
+    platform_catalogue: list[dict] | None = None,
 ) -> dict[str, Any]:
-    """Map of relative path -> payload (JSON value, or ``str`` for .ics) per file."""
+    """Map of relative path -> payload (JSON value, or ``str`` for .ics) per file.
+
+    ``platform_catalogue`` (IGDB's full platform list) gets a feed per platform
+    even when none of its games is in the window, so a subscribed feed URL
+    stays valid (an empty calendar) instead of turning into a 404.
+    """
     start_ts, end_ts = start.timestamp(), end.timestamp()
     in_window = [
         g
@@ -201,7 +207,9 @@ def build_files(
     feed_from = (now - FEED_HISTORY).date().isoformat()
     feed = [r for releases in months.values() for r in releases if r["release_date"] >= feed_from]
     files["calendar.ics"] = build_calendar(feed, "Video game releases", now, site_url)
-    for pid, platform in platforms.items():
+    feed_platforms = {p["id"]: p for p in platform_catalogue or [] if p.get("id")}
+    feed_platforms.update(platforms)
+    for pid, platform in feed_platforms.items():
         on_platform = [r for r in feed if any(p["id"] == pid for p in r["platforms"])]
         files[f"calendars/platform-{pid}.ics"] = build_calendar(
             on_platform, f"Video game releases — {platform.get('name')}", now, site_url
@@ -239,7 +247,8 @@ async def run(
         client_secret=os.getenv("IGDB_CLIENT_SECRET"),
     )
     games = await fetch_games(igdb, start, end)
-    files = build_files(games, start, end, now, site_url)
+    platform_catalogue = await igdb.get_platforms()
+    files = build_files(games, start, end, now, site_url, platform_catalogue)
     write_files(out, files)
     meta: dict[str, Any] = files["meta.json"]
     return meta

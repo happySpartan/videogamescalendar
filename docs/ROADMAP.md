@@ -51,8 +51,8 @@ Let people subscribe to releases from Google/Apple/Outlook Calendar.
 1. **`calendar.ics` feed** (#10) — written by the static export: all-day events on the EU
    release date for upcoming releases plus the last 30 days, a stable per-game UID so moved
    dates update in place, `REFRESH-INTERVAL` of 6 hours to match the export cadence.
-2. **Per-platform feeds** (#11) — `calendars/platform-<id>.ics` for every platform in
-   `platforms.json`.
+2. **Per-platform feeds** (#11) — `calendars/platform-<id>.ics` for every IGDB platform
+   (empty when it has no releases, so a subscribed URL never turns into a 404).
 3. **Subscribe button** (#12) — header dialog (static build only): pick a platform, then
    open the `webcal://` link, add to Google Calendar, or copy the feed URL.
 
