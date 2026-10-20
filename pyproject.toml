@@ -20,7 +20,7 @@ dependencies = [
     "psycopg2-binary==2.9.12",
     "alembic==1.13.1",
     # Scheduling / broker
-    "celery[redis]==5.3.4",
+    "celery[redis]==5.6.3",
     "kombu==5.3.4",
     "redis==4.6.0",
     # IGDB client
